@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 
 function BookingsTable() {
   const [bookings, setBookings] = useState([]);
-  const [filter, setFilter] = useState('Pending');
+  const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
 
@@ -15,10 +15,12 @@ function BookingsTable() {
         .select('*')
         .eq('status', filter)
         .order('created_at', { ascending: false });
+
       if (error) console.error('Error loading bookings:', error);
       else setBookings(data);
       setLoading(false);
     };
+
     fetchBookings();
   }, [filter]);
 
@@ -28,7 +30,7 @@ function BookingsTable() {
 
       {/* Filter tabs */}
       <div className="flex gap-3 mb-6">
-        {['Pending', 'Approved', 'Rejected'].map((s) => (
+        {['pending', 'approved', 'rejected'].map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}
@@ -38,7 +40,7 @@ function BookingsTable() {
                 : 'bg-white text-gray-700 hover:bg-gray-100'
             }`}
           >
-            {s}
+            {s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
         ))}
       </div>
@@ -46,7 +48,7 @@ function BookingsTable() {
       {loading ? (
         <p className="text-gray-600">Loading bookings…</p>
       ) : bookings.length === 0 ? (
-        <p className="text-gray-600">No {filter.toLowerCase()} bookings.</p>
+        <p className="text-gray-600">No {filter} bookings.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full text-left border border-gray-200">
@@ -74,7 +76,7 @@ function BookingsTable() {
                     {new Date(b.check_out).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-2 border-b text-center">{b.adults}</td>
-                  <td className="px-4 py-2 border-b">{b.status}</td>
+                  <td className="px-4 py-2 border-b capitalize">{b.status}</td>
                 </tr>
               ))}
             </tbody>
@@ -104,7 +106,8 @@ function BookingsTable() {
               {new Date(selected.check_out).toLocaleDateString()}
             </p>
             <p>
-              <strong>Status:</strong> {selected.status}
+              <strong>Status:</strong>{' '}
+              <span className="capitalize">{selected.status}</span>
             </p>
 
             <div className="mt-6 flex justify-end">
