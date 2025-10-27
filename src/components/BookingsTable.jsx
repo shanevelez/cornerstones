@@ -162,20 +162,107 @@ function BookingsTable() {
             {selected.status}
           </span>
         </div>
+
+        {/* Comments + Actions (only if pending) */}
+        {selected.status === 'pending' && (
+          <div className="mt-6 space-y-3 border-t pt-4">
+            <label className="block font-semibold text-gray-700">
+              Comments (optional)
+            </label>
+            <textarea
+              id="comment"
+              placeholder="Add context for your decision…"
+              rows={3}
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-primary focus:outline-none"
+            />
+
+            <div className="flex justify-end gap-3 pt-3">
+              <button
+                onClick={() => setSelected(null)}
+                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={async () => {
+                  const comment = document.getElementById('comment').value;
+                  const { data: session } = await supabase.auth.getSession();
+                  const userId = session?.session?.user.id;
+
+                  if (
+                    window.confirm('Are you sure you want to reject this booking?')
+                  ) {
+                    await supabase.from('approvals').insert([
+                      {
+                        booking_id: selected.id,
+                        user_id: userId,
+                        action: 'rejected',
+                        comment,
+                      },
+                    ]);
+
+                    await supabase
+                      .from('bookings')
+                      .update({ status: 'rejected' })
+                      .eq('id', selected.id);
+
+                    setSelected(null);
+                    window.location.reload(); // quick refresh for now
+                  }
+                }}
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
+              >
+                Reject
+              </button>
+
+              <button
+                onClick={async () => {
+                  const comment = document.getElementById('comment').value;
+                  const { data: session } = await supabase.auth.getSession();
+                  const userId = session?.session?.user.id;
+
+                  await supabase.from('approvals').insert([
+                    {
+                      booking_id: selected.id,
+                      user_id: userId,
+                      action: 'approved',
+                      comment,
+                    },
+                  ]);
+
+                  await supabase
+                    .from('bookings')
+                    .update({ status: 'approved' })
+                    .eq('id', selected.id);
+
+                  setSelected(null);
+                  window.location.reload(); // refresh list
+                }}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition"
+              >
+                Approve
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Footer */}
-      <div className="bg-gray-50 px-6 py-4 flex justify-end">
-        <button
-          onClick={() => setSelected(null)}
-          className="bg-primary text-white px-5 py-2 rounded-md shadow hover:bg-yellow-500 transition"
-        >
-          Close
-        </button>
-      </div>
+      {/* Footer (only Close button if not pending) */}
+      {selected.status !== 'pending' && (
+        <div className="bg-gray-50 px-6 py-4 flex justify-end">
+          <button
+            onClick={() => setSelected(null)}
+            className="bg-primary text-white px-5 py-2 rounded-md shadow hover:bg-yellow-500 transition"
+          >
+            Close
+          </button>
+        </div>
+      )}
     </div>
   </div>
 )}
+
 
     </section>
   );
