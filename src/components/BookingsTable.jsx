@@ -190,65 +190,87 @@ useEffect(() => {
                 Cancel
               </button>
 
-              <button
-                onClick={async () => {
-                  const comment = document.getElementById('comment').value;
-                  const { data: session } = await supabase.auth.getSession();
-                  const userId = session?.session?.user.id;
+              {/* Reject button */}
+<button
+  onClick={async () => {
+    const comment = document.getElementById('comment').value;
+    const { data: session } = await supabase.auth.getSession();
+    const userId = session?.session?.user.id;
 
-                  if (
-                    window.confirm('Are you sure you want to reject this booking?')
-                  ) {
-                    await supabase.from('approvals').insert([
-                      {
-                        booking_id: selected.id,
-                        user_id: userId,
-                        action: 'rejected',
-                        comment,
-                      },
-                    ]);
+    if (window.confirm('Are you sure you want to reject this booking?')) {
+      await supabase.from('approvals').insert([
+        {
+          booking_id: selected.id,
+          user_id: userId,
+          action: 'rejected',
+          comment,
+        },
+      ]);
 
-                    await supabase
-                      .from('bookings')
-                      .update({ status: 'rejected' })
-                      .eq('id', selected.id);
+      await supabase
+        .from('bookings')
+        .update({ status: 'rejected' })
+        .eq('id', selected.id);
 
-                    setSelected(null);
-                    window.location.reload(); // quick refresh for now
-                  }
-                }}
-                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
-              >
-                Reject
-              </button>
+      // ✅ send email notification
+      await fetch('/api/send-booking-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: selected.id,
+          status: 'rejected',
+          comment,
+        }),
+      });
 
-              <button
-                onClick={async () => {
-                  const comment = document.getElementById('comment').value;
-                  const { data: session } = await supabase.auth.getSession();
-                  const userId = session?.session?.user.id;
+      setSelected(null);
+      window.location.reload(); // refresh for now
+    }
+  }}
+  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
+>
+  Reject
+</button>
 
-                  await supabase.from('approvals').insert([
-                    {
-                      booking_id: selected.id,
-                      user_id: userId,
-                      action: 'approved',
-                      comment,
-                    },
-                  ]);
+{/* Approve button */}
+<button
+  onClick={async () => {
+    const comment = document.getElementById('comment').value;
+    const { data: session } = await supabase.auth.getSession();
+    const userId = session?.session?.user.id;
 
-                  await supabase
-                    .from('bookings')
-                    .update({ status: 'approved' })
-                    .eq('id', selected.id);
+    await supabase.from('approvals').insert([
+      {
+        booking_id: selected.id,
+        user_id: userId,
+        action: 'approved',
+        comment,
+      },
+    ]);
 
-                  setSelected(null);
-                  window.location.reload(); // refresh list
-                }}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition"
-              >
-                Approve
-              </button>
+    await supabase
+      .from('bookings')
+      .update({ status: 'approved' })
+      .eq('id', selected.id);
+
+    // ✅ send email notification
+    await fetch('/api/send-booking-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bookingId: selected.id,
+        status: 'approved',
+        comment,
+      }),
+    });
+
+    setSelected(null);
+    window.location.reload(); // refresh for now
+  }}
+  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition"
+>
+  Approve
+</button>
             </div>
           </div>
         )}
