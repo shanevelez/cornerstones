@@ -1,0 +1,139 @@
+/* =========================
+   Booking Calendar Styling
+   ========================= */
+
+/* Theme variables */
+.rdp-root,
+.rdp {
+  --rdp-accent-color: #f4b400;                 /* Cornerstones primary (selection) */
+  --rdp-accent-background-color: #f4b400;
+  --rdp-range_middle-background-color: rgba(244, 180, 0, 0.20);
+  --rdp-range_middle-color: #0f2b4c;
+  --rdp-color: #0f2b4c;
+  --rdp-background-color: #ffffff;
+  --rdp-outside-color: #9ca3af;
+  --rdp-today-color: #0f2b4c;
+  --rdp-today-outline: 2px solid #f4b400;
+  --rdp-font-family: Inter, sans-serif;
+  --rdp-cell-size: 42px;
+}
+
+/* =========================
+   Selection Styling
+   ========================= */
+
+.rdp-day_range_middle {
+  background-color: rgba(244, 180, 0, 0.20) !important;
+  color: #0f2b4c !important;
+  border-radius: 0 !important;
+}
+
+.rdp-day_range_start {
+  background-color: var(--rdp-accent-color) !important;
+  color: #fff !important;
+  border-radius: 9999px 0 0 9999px !important;
+}
+
+.rdp-day_range_end {
+  background-color: var(--rdp-accent-color) !important;
+  color: #fff !important;
+  border-radius: 0 9999px 9999px 0 !important;
+}
+
+.rdp-day_selected:not(.rdp-day_range_start):not(.rdp-day_range_end) {
+  background-color: var(--rdp-accent-color) !important;
+  color: #fff !important;
+  border-radius: 9999px !important;
+}
+
+/* =========================
+   Booked Styling
+   ========================= */
+
+:root {
+  --booked-strong: #b91c1c;                 /* deep red */
+  --booked-soft: rgba(185, 28, 28, 0.25);   /* light red */
+  --booked-text: #0f2b4c;
+}
+
+.rdp-day.bookedMiddle {
+  background-color: var(--booked-soft) !important;
+  color: var(--booked-text) !important;
+  border-radius: 0 !important;
+}
+
+/* Corner marker for booking START (checkout-only) */
+.rdp-day.bookedStart {
+  background-color: var(--booked-soft) !important;
+  position: relative;
+  color: var(--booked-text) !important;
+}
+.rdp-day.bookedStart::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-top: 12px solid var(--booked-strong);
+  border-right: 12px solid transparent;
+}
+
+/* Corner marker for booking END (checkin-only) */
+.rdp-day.bookedEnd {
+  background-color: var(--booked-soft) !important;
+  position: relative;
+  color: var(--booked-text) !important;
+}
+.rdp-day.bookedEnd::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-top: 12px solid var(--booked-strong);
+  border-left: 12px solid transparent;
+}
+
+/* Booked single-day = solid red circle */
+.rdp-day.bookedSingle {
+  background-color: var(--booked-strong) !important;
+  color: #fff !important;
+  border-radius: 9999px !important;
+}
+
+/* NEW: if a day is both bookedStart and bookedEnd, show it as fully booked */
+.rdp-day.bookedStart.bookedEnd {
+  background-color: var(--booked-strong) !important;
+  color: #fff !important;
+  border-radius: 0 !important;
+}
+.rdp-day.bookedStart.bookedEnd::before {
+  display: none !important;
+}
+
+/* =========================
+   Disabled & Navigation
+   ========================= */
+
+.rdp-day_disabled {
+  color: #9ca3af !important;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+.rdp-nav_button {
+  color: var(--booked-strong) !important;
+}
+.rdp-nav_button:hover {
+  background-color: rgba(185, 28, 28, 0.18) !important;
+  border-radius: 50%;
+}
+/* If a day is both start and end, treat it like bookedMiddle */
+.rdp-day.bookedStart.bookedEnd {
+  background-color: var(--booked-soft) !important;
+  color: var(--booked-text) !important;
+  border-radius: 0 !important;
+  position: static !important; /* reset positioning */
+}
+
+.rdp-day.bookedStart.bookedEnd::before {
+  display: none !important;
+}
