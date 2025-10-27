@@ -1,7 +1,3 @@
-import dotenv from 'dotenv';
-const result = dotenv.config();
-console.log('Dotenv result:', result);
-console.log('PWD:', process.cwd());
 console.log('Database URL value:', process.env.DATABASE_URL);
 import { Pool } from 'pg';
 
