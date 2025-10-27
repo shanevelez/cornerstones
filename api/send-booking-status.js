@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
     if (error || !booking) throw new Error('Booking not found');
 
-    const { guest_name, guest_email, check_in, check_out, id: booking_id } = booking;
+    const { guest_name, guest_email, check_in, check_out, id: booking_id, cancel_token } = booking;
 const currentYear = new Date().getFullYear();
 const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
     // ---- 2️⃣ Build email HTML based on status ----
@@ -40,7 +40,7 @@ const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
         <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9f9f9;padding:32px;">
           <table style="max-width:640px;margin:auto;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #eee;">
             <tr>
-              <td style="background:#e7b333;color:#0f2b4c;padding:20px 24px;font-size:22px;font-weight:bold;">
+              <td style="background:#0f2b4c;color:#e7b333;padding:20px 24px;font-size:22px;font-weight:bold;">
                 Cornerstones Booking Confirmation
               </td>
             </tr>
@@ -102,7 +102,7 @@ const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
 <h3 style="color:#0f2b4c;margin-top:28px;">Parking</h3>
                 <p style="margin-top:24px;">              
 The drive at Cornerstones is spacious and parking locally in the summer is limited so we have a
-Just Park space adjacent to the wall at the top of the drive. We appreciate that this may be an
+Just Park space adjacent to the wall at the top of the drive. Just Park is an app that allows users to book parking spaces on residential properties. We offer a very small part of our drive to other tourists in the area.<BR><BR> We appreciate that this may be an
 issue for some visitors particularly if bringing multiple vehicles. If you anticipate there being a
 problem or you have any other questions about the Just Park space, please contact Eve Ashe on
 07956 839713.
@@ -110,8 +110,20 @@ Further details are available in the information folder in the house.
                 </p>
 
                 <p style="margin-top:30px;">We hope you have a wonderful holiday.</p>
-                <p style="margin-bottom:0;">Richard and Louise/p>
+                <p style="margin-bottom:0;">Richard and Louise</p>
+                
                 <p style="font-size:14px;color:#555;">Cornerstones Bookings · 07717 132433 · millam@doctors.org.uk</p>
+                <p style="margin-top:32px;">
+  If you need to cancel your booking, please click below:<br>
+ <a href="https://www.cornerstonescrantock.com/cancel/${cancel_token}"
+     style="color:#0f2b4c;font-weight:600;text-decoration:underline;">
+     Cancel this booking
+  </a>
+</p>
+
+<p style="font-size:13px;color:#666;margin-top:8px;">
+  This link is unique to your booking — please do not share it.
+</p>
               </td>
             </tr>
             <tr>
@@ -150,7 +162,7 @@ Further details are available in the information folder in the house.
 
                 <p>You’re very welcome to check availability again at any time.</p>
 
-                <p style="margin-top:32px;">With best wishes,<br>Cornerstones Bookings Team</p>
+                <p style="margin-top:32px;">With best wishes,<br>Cornerstones Family</p>
               </td>
             </tr>
             <tr>

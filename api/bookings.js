@@ -1,5 +1,6 @@
 console.log('Database URL value:', process.env.DATABASE_URL);
 import { Pool } from 'pg';
+import crypto from 'crypto'; // ✅ built-in Node module — no install needed
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -25,6 +26,9 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing required fields.' });
       }
 
+      // ✅ Generate unique cancel token
+      const cancelToken = crypto.randomBytes(24).toString('hex');
+
       const query = `
         INSERT INTO bookings (
           guest_name,
@@ -35,9 +39,10 @@ export default async function handler(req, res) {
           grandchildren_over21,
           children_16plus,
           students,
-          family_member
+          family_member,
+          cancel_token
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
         RETURNING *;
       `;
 
@@ -50,13 +55,14 @@ export default async function handler(req, res) {
         grandchildren_over21 ?? 0,
         children_16plus ?? 0,
         students ?? 0,
-        family_member ?? false
+        family_member ?? false,
+        cancelToken // ✅ new column
       ];
 
       const { rows } = await pool.query(query, values);
       const newBooking = rows[0];
 
-      // ✅ NEW: Trigger Resend email notification
+      // ✅ Notify approvers
       try {
         await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/notify-approvers`, {
           method: 'POST',
