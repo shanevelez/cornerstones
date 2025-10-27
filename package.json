@@ -20,7 +20,7 @@
     "react-day-picker": "^9.11.0",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.4",
-    "resend": "^6.2.2",
+    "resend": "^6.3.0",
     "vercel": "^48.6.0"
   },
   "devDependencies": {

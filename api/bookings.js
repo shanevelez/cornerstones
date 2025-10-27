@@ -1,8 +1,6 @@
 console.log('Database URL value:', process.env.DATABASE_URL);
 import { Pool } from 'pg';
 
-
-
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false } // Supabase requires SSL
@@ -56,7 +54,25 @@ export default async function handler(req, res) {
       ];
 
       const { rows } = await pool.query(query, values);
-      return res.status(200).json({ success: true, booking: rows[0] });
+      const newBooking = rows[0];
+
+      // ✅ NEW: Trigger Resend email notification
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/notify-approvers`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId: newBooking.id,
+            guest_name: newBooking.guest_name,
+            check_in: newBooking.check_in,
+            check_out: newBooking.check_out
+          })
+        });
+      } catch (emailErr) {
+        console.error('Email notification failed:', emailErr);
+      }
+
+      return res.status(200).json({ success: true, booking: newBooking });
     } catch (error) {
       console.error('Insert error:', error);
       return res.status(500).json({ error: 'Failed to save booking.' });
