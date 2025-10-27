@@ -9,9 +9,10 @@ function Admin() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation(); // ✅ added here
+  
 
   // ---- extract deep link param ----
-  const params = new URLSearchParams(location.search);
+  const params = new URLSearchParams(location?.search || '');
   const bookingIdFromURL = params.get('booking');
 
   // ---- helper to fetch user role ----

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 
-function BookingsTable() {
+function BookingsTable({ deepLinkId }) {
   const [bookings, setBookings] = useState([]);
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
