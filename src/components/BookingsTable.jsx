@@ -109,7 +109,7 @@ function BookingsTable() {
             <span className="font-semibold">Email:</span>{' '}
             <a
               href={`mailto:${selected.guest_email}`}
-              className="text-primary hover:underline"
+              className="text-blue-700 hover:text-blue-800 hover:underline transition"
             >
               {selected.guest_email}
             </a>
