@@ -180,11 +180,12 @@ function SubmitRecommendation({ isVisible }) {
         <div>
           <label className="block text-sm font-semibold mb-1">Photos (optional, up to 4)</label>
           <label
-            htmlFor="fileInput"
-            className="inline-block bg-primary text-white px-4 py-2 rounded-md cursor-pointer hover:bg-yellow-500 transition"
-          >
-            {files.length > 0 ? `${files.length} selected` : "Select Photos"}
-          </label>
+  htmlFor="fileInput"
+  className="inline-block bg-gray-100 text-gray-700 border border-gray-300 text-sm px-3 py-1.5 rounded-md cursor-pointer hover:bg-gray-200 transition"
+>
+  {files.length > 0 ? `${files.length} selected` : "Select Photos"}
+</label>
+
           <input
             id="fileInput"
             type="file"
