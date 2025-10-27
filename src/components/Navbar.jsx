@@ -7,8 +7,10 @@ function Navbar() {
 
         {/* Right: nav links */}
         <div className="space-x-6 font-sans text-lg">
-          <a href="#booking" className="hover:text-primary">Book</a>
-          <a href="/recommend" className="hover:text-primary">Local Recs</a>
+          <a href="https://www.cornerstonescrantock.com" className="hover:text-primary">Book</a>
+          <a href="/local-recs" className="hover:text-primary">
+            Local Recs
+          </a>
           
         </div>
       </nav>
