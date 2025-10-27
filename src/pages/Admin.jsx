@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import BookingsTable from '../components/BookingsTable';
 
@@ -8,6 +8,11 @@ function Admin() {
   const [userRole, setUserRole] = useState('');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation(); // ✅ added here
+
+  // ---- extract deep link param ----
+  const params = new URLSearchParams(location.search);
+  const bookingIdFromURL = params.get('booking');
 
   // ---- helper to fetch user role ----
   const fetchUserRole = async (userId) => {
@@ -94,24 +99,24 @@ function Admin() {
 
         {/* Role-based content */}
         {userRole === 'Admin' && (
-           <div>
-    <h3 className="text-xl font-heading text-primary mb-3">Full Access</h3>
-    <p className="text-gray-700 mb-6">
-      You can manage bookings, recommendations, and users here (coming soon).
-    </p>
-    <BookingsTable /> {/* 👈 table appears here */}
-  </div>
-)}
+          <div>
+            <h3 className="text-xl font-heading text-primary mb-3">Full Access</h3>
+            <p className="text-gray-700 mb-6">
+              You can manage bookings, recommendations, and users here (coming soon).
+            </p>
+            <BookingsTable deepLinkId={bookingIdFromURL} /> {/* ✅ added prop */}
+          </div>
+        )}
 
         {userRole === 'Approver' && (
-         <div>
-    <h3 className="text-xl font-heading text-primary mb-3">Bookings Approvals</h3>
-    <p className="text-gray-700 mb-6">
-      You can view and approve bookings here.
-    </p>
-    <BookingsTable /> {/* 👈 same table for Approvers */}
-  </div>
-)}
+          <div>
+            <h3 className="text-xl font-heading text-primary mb-3">Bookings Approvals</h3>
+            <p className="text-gray-700 mb-6">
+              You can view and approve bookings here.
+            </p>
+            <BookingsTable deepLinkId={bookingIdFromURL} /> {/* ✅ same prop */}
+          </div>
+        )}
 
         {!['Admin', 'Approver'].includes(userRole) && (
           <div className="text-red-600 font-semibold">

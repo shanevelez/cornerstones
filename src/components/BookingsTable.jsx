@@ -23,6 +23,12 @@ function BookingsTable() {
 
     fetchBookings();
   }, [filter]);
+useEffect(() => {
+  if (deepLinkId && bookings.length > 0) {
+    const match = bookings.find((b) => b.id === Number(deepLinkId));
+    if (match) setSelected(match);
+  }
+}, [deepLinkId, bookings]);
 
   return (
     <section className="mt-8">
