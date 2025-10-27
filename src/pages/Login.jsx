@@ -1,113 +1,85 @@
-import { useEffect, useState } from 'react';
+// src/pages/Login.jsx
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
-function Admin() {
-  const [session, setSession] = useState(null);
-  const [userRole, setUserRole] = useState('');
-  const [loading, setLoading] = useState(true);
+function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const init = async () => {
-      // 1️⃣ Check session
-      const { data: sessionData } = await supabase.auth.getSession();
-      const currentSession = sessionData?.session;
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-      if (!currentSession) {
-        navigate('/login');
-        return;
-      }
-
-      setSession(currentSession);
-
-      // 2️⃣ Fetch role from users table
-      const userId = currentSession.user.id;
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        console.error('Error fetching user role:', error);
-      } else {
-        setUserRole(userData.role);
-      }
-
-      setLoading(false);
-    };
-
-    init();
-
-    // 3️⃣ Watch auth state changes
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) navigate('/login');
-      setSession(session);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
 
-    return () => listener.subscription.unsubscribe();
-  }, [navigate]);
+    setLoading(false);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-gray-600">
-        Loading dashboard...
-      </div>
-    );
-  }
-
-  if (!session) return null;
-
-  const email = session.user.email;
+    if (error) {
+      setError(error.message);
+    } else {
+      navigate('/admin');
+    }
+  };
 
   return (
-    <section className="min-h-screen bg-neutralbg p-8">
-      <div className="max-w-5xl mx-auto bg-white shadow rounded-lg p-6 border-t-4 border-primary">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-3xl font-heading text-primary">Admin Dashboard</h2>
-            <p className="text-gray-600">Logged in as {email}</p>
-            <p className="text-gray-600 text-sm mt-1">Role: {userRole}</p>
-          </div>
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate('/login');
-            }}
-            className="bg-primary text-white px-4 py-2 rounded-md shadow hover:bg-yellow-500 transition"
-          >
-            Sign Out
-          </button>
-        </div>
+    <section className="flex items-center justify-center min-h-screen bg-neutralbg px-6">
+      <div className="bg-white rounded-lg shadow-md p-8 w-full max-w-md border-t-4 border-primary">
+        <h2 className="text-3xl font-heading text-center text-primary mb-6">
+          Admin Login
+        </h2>
 
-        {/* Role-based content */}
-        {userRole === 'Admin' && (
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <h3 className="text-xl font-heading text-primary mb-3">Full Access</h3>
-            <p className="text-gray-700">
-              You can manage bookings, recommendations, and users here (coming soon).
-            </p>
+            <label className="block font-sans text-sm text-text mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              required
+            />
           </div>
-        )}
 
-        {userRole === 'Approver' && (
           <div>
-            <h3 className="text-xl font-heading text-primary mb-3">Bookings Approvals</h3>
-            <p className="text-gray-700">
-              You can view and approve bookings here (bookings table coming next).
-            </p>
+            <label className="block font-sans text-sm text-text mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              required
+            />
           </div>
-        )}
 
-        {!['Admin', 'Approver'].includes(userRole) && (
-          <div className="text-red-600 font-semibold">
-            Your account doesn’t have permission to access this dashboard.
+          {error && (
+            <p className="text-red-600 font-sans text-sm text-center">{error}</p>
+          )}
+
+          <div className="flex justify-center mt-6">
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-primary text-white font-sans text-lg px-6 py-2 rounded-md shadow hover:bg-yellow-500 transition"
+            >
+              {loading ? 'Loading…' : 'Log In'}
+            </button>
           </div>
-        )}
+        </form>
       </div>
     </section>
   );
 }
 
-export default Admin;
+export default Login;
