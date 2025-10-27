@@ -27,9 +27,9 @@ export default async function handler(req, res) {
 
     if (error || !booking) throw new Error('Booking not found');
 
-    const { guest_name, guest_email, check_in, check_out } = booking;
+    const { guest_name, guest_email, check_in, check_out, id: booking_id } = booking;
 const currentYear = new Date().getFullYear();
-const bookingNumber = `${currentYear}${String(id).padStart(2, '0')}`;
+const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
     // ---- 2️⃣ Build email HTML based on status ----
     let subject = '';
     let html = '';
@@ -110,7 +110,7 @@ Further details are available in the information folder in the house.
                 </p>
 
                 <p style="margin-top:30px;">We hope you have a wonderful holiday.</p>
-                <p style="margin-bottom:0;">Richard and Louise Wills</p>
+                <p style="margin-bottom:0;">Richard and Louise/p>
                 <p style="font-size:14px;color:#555;">Cornerstones Bookings · 07717 132433 · millam@doctors.org.uk</p>
               </td>
             </tr>
