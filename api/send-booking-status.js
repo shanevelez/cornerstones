@@ -28,7 +28,8 @@ export default async function handler(req, res) {
     if (error || !booking) throw new Error('Booking not found');
 
     const { guest_name, guest_email, check_in, check_out } = booking;
-
+const currentYear = new Date().getFullYear();
+const bookingNumber = `${currentYear}${String(id).padStart(2, '0')}`;
     // ---- 2️⃣ Build email HTML based on status ----
     let subject = '';
     let html = '';
@@ -54,7 +55,7 @@ export default async function handler(req, res) {
                 <table style="margin:20px 0;border-collapse:collapse;width:100%;">
                   <tr>
                     <td style="padding:8px;border:1px solid #ddd;"><strong>Booking number</strong></td>
-                    <td style="padding:8px;border:1px solid #ddd;">${bookingId}</td>
+                    <td style="padding:8px;border:1px solid #ddd;">${bookingNumber}</td>
                   </tr>
                   <tr>
                     <td style="padding:8px;border:1px solid #ddd;"><strong>Arrive</strong></td>
@@ -84,7 +85,7 @@ export default async function handler(req, res) {
                   <p style="margin:0;"><strong>Account Name:</strong> M Wills</p>
                   <p style="margin:0;"><strong>Sort Code:</strong> 40-10-00</p>
                   <p style="margin:0;"><strong>Account No.:</strong> 11064789</p>
-                  <p style="margin:0;"><strong>Reference:</strong> Your booking number ${bookingId}</p>
+                  <p style="margin:0;"><strong>Reference:</strong> Your booking number ${bookingNumber}</p>
                 </div>
 
                 <h3 style="color:#0f2b4c;margin-top:28px;">Arrival & Departure</h3>
@@ -98,9 +99,14 @@ export default async function handler(req, res) {
                   <li>See the folder in the house for local info and parking guidance.</li>
                   <li>EV charging points – Crantock Village Hall and Esso garage (Newquay Road).</li>
                 </ul>
-
-                <p style="margin-top:24px;">
-                  For questions about parking or multiple vehicles, contact Eve Ashe on 07956 839713.
+<h3 style="color:#0f2b4c;margin-top:28px;">Parking</h3>
+                <p style="margin-top:24px;">              
+The drive at Cornerstones is spacious and parking locally in the summer is limited so we have a
+Just Park space adjacent to the wall at the top of the drive. We appreciate that this may be an
+issue for some visitors particularly if bringing multiple vehicles. If you anticipate there being a
+problem or you have any other questions about the Just Park space, please contact Eve Ashe on
+07956 839713.
+Further details are available in the information folder in the house.
                 </p>
 
                 <p style="margin-top:30px;">We hope you have a wonderful holiday.</p>
