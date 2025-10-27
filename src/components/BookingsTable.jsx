@@ -84,43 +84,99 @@ function BookingsTable() {
         </div>
       )}
 
-      {/* Modal skeleton */}
-      {selected && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-lg w-full">
-            <h4 className="text-xl font-heading text-primary mb-4">
-              Booking Details
-            </h4>
-            <p>
-              <strong>Guest:</strong> {selected.guest_name}
-            </p>
-            <p>
-              <strong>Email:</strong> {selected.guest_email}
-            </p>
-            <p>
-              <strong>Check-in:</strong>{' '}
-              {new Date(selected.check_in).toLocaleDateString()}
-            </p>
-            <p>
-              <strong>Check-out:</strong>{' '}
-              {new Date(selected.check_out).toLocaleDateString()}
-            </p>
-            <p>
-              <strong>Status:</strong>{' '}
-              <span className="capitalize">{selected.status}</span>
-            </p>
+      {/* Modal */}
+{selected && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg shadow-2xl w-full max-w-xl overflow-hidden border border-gray-200">
+      {/* Header */}
+      <div className="flex justify-between items-center bg-primary text-white px-6 py-4">
+        <h4 className="text-xl font-heading">Booking Details</h4>
+        <button
+          onClick={() => setSelected(null)}
+          className="text-white text-2xl leading-none hover:text-yellow-200"
+        >
+          ×
+        </button>
+      </div>
 
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setSelected(null)}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+      {/* Body */}
+      <div className="p-6 space-y-3 font-sans text-gray-800">
+        <div className="flex flex-col sm:flex-row sm:justify-between">
+          <p>
+            <span className="font-semibold">Guest:</span> {selected.guest_name}
+          </p>
+          <p>
+            <span className="font-semibold">Email:</span>{' '}
+            <a
+              href={`mailto:${selected.guest_email}`}
+              className="text-primary hover:underline"
+            >
+              {selected.guest_email}
+            </a>
+          </p>
         </div>
-      )}
+
+        <div className="flex flex-col sm:flex-row sm:justify-between">
+          <p>
+            <span className="font-semibold">Check-in:</span>{' '}
+            {new Date(selected.check_in).toLocaleDateString()}
+          </p>
+          <p>
+            <span className="font-semibold">Check-out:</span>{' '}
+            {new Date(selected.check_out).toLocaleDateString()}
+          </p>
+        </div>
+
+        <div className="border-t pt-3 mt-3">
+          <p>
+            <span className="font-semibold">Adults:</span> {selected.adults}
+          </p>
+          <p>
+            <span className="font-semibold">Grandchildren over 21:</span>{' '}
+            {selected.grandchildren_over21}
+          </p>
+          <p>
+            <span className="font-semibold">Children 16 +:</span>{' '}
+            {selected.children_16plus}
+          </p>
+          <p>
+            <span className="font-semibold">Students:</span> {selected.students}
+          </p>
+          <p>
+            <span className="font-semibold">Family member:</span>{' '}
+            {selected.family_member ? 'Yes' : 'No'}
+          </p>
+        </div>
+
+        <div className="border-t pt-3 mt-3 flex justify-between items-center">
+          <p className="font-semibold">Status:</p>
+          <span
+            className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${
+              selected.status === 'approved'
+                ? 'bg-green-100 text-green-700'
+                : selected.status === 'rejected'
+                ? 'bg-red-100 text-red-700'
+                : 'bg-yellow-100 text-yellow-700'
+            }`}
+          >
+            {selected.status}
+          </span>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="bg-gray-50 px-6 py-4 flex justify-end">
+        <button
+          onClick={() => setSelected(null)}
+          className="bg-primary text-white px-5 py-2 rounded-md shadow hover:bg-yellow-500 transition"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </section>
   );
 }
