@@ -15,7 +15,9 @@ export default async function handler(req, res) {
     const { token, reason } = req.body;
 
     if (!token || !reason) {
-      return res.status(400).json({ error: 'Missing cancellation token or reason.' });
+      return res
+        .status(400)
+        .json({ error: 'Missing cancellation token or reason.' });
     }
 
     // ---- 1️⃣ find booking by token ----
@@ -26,7 +28,9 @@ export default async function handler(req, res) {
       .single();
 
     if (lookupError || !booking) {
-      return res.status(404).json({ error: 'Invalid or expired cancellation link.' });
+      return res
+        .status(404)
+        .json({ error: 'Invalid or expired cancellation link.' });
     }
 
     if (booking.status === 'cancelled') {
@@ -40,7 +44,9 @@ export default async function handler(req, res) {
 
     if (insertError) {
       console.error('Insert cancellation failed:', insertError);
-      return res.status(500).json({ error: 'Failed to record cancellation.' });
+      return res
+        .status(500)
+        .json({ error: 'Failed to record cancellation.' });
     }
 
     // ---- 3️⃣ update booking status ----
@@ -51,13 +57,29 @@ export default async function handler(req, res) {
 
     if (updateError) {
       console.error('Update booking status failed:', updateError);
-      return res.status(500).json({ error: 'Failed to update booking status.' });
+      return res
+        .status(500)
+        .json({ error: 'Failed to update booking status.' });
     }
 
-    // ---- 4️⃣ done ----
+    // ---- 4️⃣ notify admins + guest via email ----
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/notify-cancellation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id, reason }),
+      });
+    } catch (notifyErr) {
+      console.error('Notify cancellation failed:', notifyErr);
+    }
+
+    // ---- 5️⃣ done ----
     return res.status(200).json({ success: true });
   } catch (err) {
     console.error('Cancellation error:', err);
-    res.status(500).json({ error: 'Unexpected error', details: err.message });
+    res.status(500).json({
+      error: 'Unexpected error',
+      details: err.message,
+    });
   }
 }
