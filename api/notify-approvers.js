@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 
     // 3️⃣ send email
     await resend.emails.send({
-      from: 'Cornerstones Booking <no-reply@cornerstonescrantock.com>',
+      from: 'Cornerstones Booking <onboarding@resend.dev>',
       to: recipientEmails,
       subject: `New Booking Pending Approval – ${guest_name}`,
       html: `
