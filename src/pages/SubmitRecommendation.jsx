@@ -13,7 +13,7 @@ const tagOptions = [
   "Sunset Spot",
 ];
 
-function SubmitRecommendation() {
+function SubmitRecommendation({ isVisible }) {
   const [form, setForm] = useState({
     name: "",
     address: "",
@@ -41,7 +41,6 @@ function SubmitRecommendation() {
     setMessage("");
 
     try {
-      // Optional photo upload
       const uploadedUrls = [];
       if (files.length > 0) {
         for (const file of files) {
@@ -65,7 +64,6 @@ function SubmitRecommendation() {
         }
       }
 
-      // Insert record into Supabase
       const { error: insertError } = await supabase.from("recommendations").insert([
         {
           name: form.name,
@@ -80,7 +78,7 @@ function SubmitRecommendation() {
 
       if (insertError) throw insertError;
 
-      setMessage("Recommendation submitted! Awaiting admin approval.");
+      setMessage("Recommendation submitted! Awaiting approval.");
       setForm({ name: "", address: "", description: "" });
       setFiles([]);
       setTags([]);
@@ -94,21 +92,22 @@ function SubmitRecommendation() {
   };
 
   return (
-    <section className="max-w-3xl mx-auto p-6">
-      <h2 className="text-3xl font-heading text-primary mb-6 text-center">
-        Submit a Local Recommendation
-      </h2>
-
+    <div
+      className={`transition-all duration-500 ease-in-out transform ${
+        isVisible ? "max-h-[1500px] opacity-100 translate-y-0" : "max-h-0 opacity-0 -translate-y-4"
+      } overflow-hidden`}
+    >
       <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6 space-y-4">
-        {/* Name */}
+        {/* Place Name */}
         <div>
-          <label className="block text-sm font-semibold mb-1">Name *</label>
+          <label className="block text-sm font-semibold mb-1">Place Name *</label>
           <input
             name="name"
             value={form.name}
             onChange={handleChange}
             required
             className="border w-full p-2 rounded-md"
+            placeholder="e.g. The Bowgie Inn"
           />
         </div>
 
@@ -120,6 +119,7 @@ function SubmitRecommendation() {
             value={form.address}
             onChange={handleChange}
             className="border w-full p-2 rounded-md"
+            placeholder="Optional"
           />
         </div>
 
@@ -133,6 +133,7 @@ function SubmitRecommendation() {
             onChange={handleChange}
             required
             className="border w-full p-2 rounded-md"
+            placeholder="Describe what makes this place worth visiting..."
           />
         </div>
 
@@ -153,7 +154,7 @@ function SubmitRecommendation() {
           </select>
         </div>
 
-        {/* Tags checkboxes */}
+        {/* Tags */}
         <div>
           <label className="block text-sm font-semibold mb-1">
             Tags (select all that apply)
@@ -175,13 +176,25 @@ function SubmitRecommendation() {
           </div>
         </div>
 
-        {/* Photos (optional) */}
+        {/* Photos */}
         <div>
           <label className="block text-sm font-semibold mb-1">Photos (optional, up to 4)</label>
-          <input type="file" accept="image/*" multiple onChange={handleFileChange} />
+          <label
+            htmlFor="fileInput"
+            className="inline-block bg-primary text-white px-4 py-2 rounded-md cursor-pointer hover:bg-yellow-500 transition"
+          >
+            {files.length > 0 ? `${files.length} selected` : "Select Photos"}
+          </label>
+          <input
+            id="fileInput"
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileChange}
+            className="hidden"
+          />
         </div>
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={loading}
@@ -194,7 +207,7 @@ function SubmitRecommendation() {
           <p className="text-center mt-4 text-gray-700 font-medium">{message}</p>
         )}
       </form>
-    </section>
+    </div>
   );
 }
 

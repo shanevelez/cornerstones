@@ -48,12 +48,10 @@ function LocalRecs() {
           </button>
         </div>
 
-        {/* Expand/collapse form */}
-        {showForm && (
-          <div className="mb-12 border-t pt-8">
-            <SubmitRecommendation />
-          </div>
-        )}
+        {/* Animated expand/collapse form */}
+        <div className="mb-12 border-t pt-8">
+          <SubmitRecommendation isVisible={showForm} />
+        </div>
 
         {/* Category filter bar */}
         <div className="flex flex-wrap justify-center gap-3 mb-8">
@@ -79,11 +77,17 @@ function LocalRecs() {
               key={rec.id}
               className="bg-white shadow rounded-lg overflow-hidden border hover:shadow-lg transition"
             >
-              <img
-                src={rec.photos?.[0]}
-                alt={rec.name}
-                className="w-full h-56 object-cover"
-              />
+              {rec.photos?.length > 0 ? (
+                <img
+                  src={rec.photos[0]}
+                  alt={rec.name}
+                  className="w-full h-56 object-cover"
+                />
+              ) : (
+                <div className="w-full h-56 bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
+                  No Image
+                </div>
+              )}
               <div className="p-4">
                 <h3 className="text-xl font-heading text-primary mb-2">{rec.name}</h3>
                 {rec.address && <p className="text-sm text-gray-600 mb-2">{rec.address}</p>}
@@ -103,6 +107,7 @@ function LocalRecs() {
               </div>
             </div>
           ))}
+
           {recs.length === 0 && (
             <p className="text-gray-600 col-span-full text-center">
               No {category === "All" ? "" : category.toLowerCase()} recommendations yet.
