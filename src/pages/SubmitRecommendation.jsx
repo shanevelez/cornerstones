@@ -64,17 +64,18 @@ function SubmitRecommendation({ isVisible }) {
         }
       }
 
-      const { error: insertError } = await supabase.from("recommendations").insert([
-        {
-          name: form.name,
-          address: form.address,
-          description: form.description,
-          category,
-          tags,
-          photos: uploadedUrls,
-          status: "pending",
-        },
-      ]);
+      const { error: insertError } = await fetch("/api/recommendations", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    name: form.name,
+    address: form.address,
+    description: form.description,
+    category: form.category,
+    tags: form.tags,
+    photos: uploadedUrls,
+  }),
+});
 
       if (insertError) throw insertError;
 
