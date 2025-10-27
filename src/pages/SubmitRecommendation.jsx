@@ -1,4 +1,5 @@
 import { useState } from "react";
+import imageCompression from "browser-image-compression";
 
 const categoryOptions = [
   "Dining",
@@ -42,13 +43,24 @@ function SubmitRecommendation({ isVisible }) {
     setMessage("");
 
     try {
+      // --- compress images before sending ---
+      const compressedFiles = [];
+      for (const file of files) {
+        const compressed = await imageCompression(file, {
+          maxWidthOrHeight: 1600,   // slightly smaller for better size
+          maxSizeMB: 0.25,          // target ~250 KB each
+          useWebWorker: true,
+        });
+        compressedFiles.push(compressed);
+      }
+
       const formData = new FormData();
       formData.append("name", form.name);
       formData.append("address", form.address);
       formData.append("description", form.description);
       formData.append("category", category);
       formData.append("tags", JSON.stringify(tags));
-      files.forEach((f) => formData.append("photos", f));
+      compressedFiles.forEach((f) => formData.append("photos", f));
 
       const res = await fetch("/api/recommendations", {
         method: "POST",
