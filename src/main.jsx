@@ -6,6 +6,7 @@ import App from './App.jsx';
 import Login from './pages/Login.jsx'; // we’ll add more later (like Admin)
 import Admin from './pages/Admin.jsx';
 import CancelBooking from './pages/CancelBooking';
+import SubmitRecommendation from "./pages/SubmitRecommendation";
 
 
 
@@ -17,6 +18,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/login" element={<Login />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/cancel/:token" element={<CancelBooking />} />
+        <Route path="/recommend" element={<SubmitRecommendation />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

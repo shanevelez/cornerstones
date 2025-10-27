@@ -6,6 +6,9 @@ function Navbar() {
         <div className="space-x-6 font-sans text-lg">
           <a href="#booking" className="hover:text-primary">Book</a>
         </div>
+        <div className="space-x-6 font-sans text-lg">
+          <a href="/recommend" className="hover:text-primary">Local Recs</a>
+        </div>
       </nav>
     </header>
   )
