@@ -1,8 +1,10 @@
+import heroImg from '../assets/hero.jpg'
+
 function Hero() {
   return (
     <main
       className="flex flex-col items-center justify-center text-center px-6 bg-cover bg-center min-h-[70vh]"
-      style={{ backgroundImage: "url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e')" }}
+      style={{ backgroundImage: `url(${heroImg})` }}
     >
       <div className="bg-white/70 p-8 rounded-lg shadow-md">
         <h2 className="text-5xl font-heading text-primary mb-4">
