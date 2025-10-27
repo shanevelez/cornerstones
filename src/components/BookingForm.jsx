@@ -46,11 +46,31 @@ function BookingForm() {
     family_member: false, // boolean
   })
 
-  // Example bookings (replace with real fetch later)
-  const bookings = [
-    { from: new Date(2025, 8, 1), to: new Date(2025, 8, 4) },
-    { from: new Date(2025, 8, 10), to: new Date(2025, 8, 15) },
-  ]
+  
+const [bookings, setBookings] = useState([]);
+
+useEffect(() => {
+  const fetchBookings = async () => {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('check_in, check_out, status')
+      .in('status', ['pending', 'approved']); // Only block pending + approved
+
+    if (error) {
+      console.error('Error loading bookings:', error);
+      return;
+    }
+
+    const formatted = data.map((b) => ({
+      from: new Date(b.check_in),
+      to: new Date(b.check_out),
+    }));
+
+    setBookings(formatted);
+  };
+
+  fetchBookings();
+}, []);
 
   const handleSelect = (next) => {
     if (!next) return
