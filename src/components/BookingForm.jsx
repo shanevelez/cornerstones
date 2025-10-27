@@ -1,7 +1,9 @@
-import { useRef, useState } from "react"
-import { format, differenceInCalendarDays } from "date-fns"
-import { enGB } from "date-fns/locale"
-import BookingCalendar from "./BookingCalendar"
+import { useRef, useState, useEffect } from "react";
+import { format, differenceInCalendarDays } from "date-fns";
+import { enGB } from "date-fns/locale";
+import { supabase } from "../supabaseClient";    
+import BookingCalendar from "./BookingCalendar";
+
 
 // ---- helpers ----
 const dateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
