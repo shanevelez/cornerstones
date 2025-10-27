@@ -2,12 +2,25 @@ import { useState } from "react";
 import { supabase } from "../supabaseClient";
 import imageCompression from "browser-image-compression";
 
+const categoryOptions = ["Dining", "Nature", "Activities", "Shops", "Hidden Gems", "General"];
+const tagOptions = [
+  "Family Friendly",
+  "Dog Friendly",
+  "Beach View",
+  "Scenic Walk",
+  "Local Produce",
+  "Live Music",
+  "Sunset Spot",
+];
+
 function SubmitRecommendation() {
   const [form, setForm] = useState({
     name: "",
     address: "",
     description: "",
   });
+  const [category, setCategory] = useState("General");
+  const [tags, setTags] = useState([]);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -28,36 +41,38 @@ function SubmitRecommendation() {
     setMessage("");
 
     try {
-      if (files.length === 0) throw new Error("At least one photo is required");
-
-      // compress + upload each photo
+      // Optional photo upload
       const uploadedUrls = [];
-      for (const file of files) {
-        const compressed = await imageCompression(file, {
-          maxWidthOrHeight: 1920,
-          maxSizeMB: 0.5,
-        });
+      if (files.length > 0) {
+        for (const file of files) {
+          const compressed = await imageCompression(file, {
+            maxWidthOrHeight: 1920,
+            maxSizeMB: 0.5,
+          });
 
-        const filePath = `uploads/${Date.now()}-${file.name}`;
-        const { data, error } = await supabase.storage
-          .from("recommendations")
-          .upload(filePath, compressed);
+          const filePath = `uploads/${Date.now()}-${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from("recommendations")
+            .upload(filePath, compressed);
 
-        if (error) throw error;
+          if (uploadError) throw uploadError;
 
-        const { data: publicUrlData } = supabase.storage
-          .from("recommendations")
-          .getPublicUrl(filePath);
+          const { data: publicUrlData } = supabase.storage
+            .from("recommendations")
+            .getPublicUrl(filePath);
 
-        uploadedUrls.push(publicUrlData.publicUrl);
+          uploadedUrls.push(publicUrlData.publicUrl);
+        }
       }
 
-      // insert into recommendations table
+      // Insert record into Supabase
       const { error: insertError } = await supabase.from("recommendations").insert([
         {
           name: form.name,
           address: form.address,
           description: form.description,
+          category,
+          tags,
           photos: uploadedUrls,
           status: "pending",
         },
@@ -68,6 +83,8 @@ function SubmitRecommendation() {
       setMessage("Recommendation submitted! Awaiting admin approval.");
       setForm({ name: "", address: "", description: "" });
       setFiles([]);
+      setTags([]);
+      setCategory("General");
     } catch (err) {
       console.error("Submit error:", err);
       setMessage(err.message || "Something went wrong.");
@@ -83,6 +100,7 @@ function SubmitRecommendation() {
       </h2>
 
       <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6 space-y-4">
+        {/* Name */}
         <div>
           <label className="block text-sm font-semibold mb-1">Name *</label>
           <input
@@ -94,6 +112,7 @@ function SubmitRecommendation() {
           />
         </div>
 
+        {/* Address */}
         <div>
           <label className="block text-sm font-semibold mb-1">Address</label>
           <input
@@ -104,6 +123,7 @@ function SubmitRecommendation() {
           />
         </div>
 
+        {/* Description */}
         <div>
           <label className="block text-sm font-semibold mb-1">Description *</label>
           <textarea
@@ -116,19 +136,52 @@ function SubmitRecommendation() {
           />
         </div>
 
+        {/* Category dropdown */}
         <div>
-          <label className="block text-sm font-semibold mb-1">
-            Photos (1–4, at least 1 required)
-          </label>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleFileChange}
+          <label className="block text-sm font-semibold mb-1">Category *</label>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
             required
-          />
+            className="border w-full p-2 rounded-md"
+          >
+            {categoryOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </div>
 
+        {/* Tags checkboxes */}
+        <div>
+          <label className="block text-sm font-semibold mb-1">
+            Tags (select all that apply)
+          </label>
+          <div className="flex flex-wrap gap-3">
+            {tagOptions.map((tag) => (
+              <label key={tag} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={tags.includes(tag)}
+                  onChange={(e) => {
+                    if (e.target.checked) setTags((prev) => [...prev, tag]);
+                    else setTags((prev) => prev.filter((t) => t !== tag));
+                  }}
+                />
+                {tag}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Photos (optional) */}
+        <div>
+          <label className="block text-sm font-semibold mb-1">Photos (optional, up to 4)</label>
+          <input type="file" accept="image/*" multiple onChange={handleFileChange} />
+        </div>
+
+        {/* Submit */}
         <button
           type="submit"
           disabled={loading}
