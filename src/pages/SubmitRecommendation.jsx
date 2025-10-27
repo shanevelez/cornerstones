@@ -1,8 +1,13 @@
 import { useState } from "react";
-import { supabase } from "../supabaseClient";
-import imageCompression from "browser-image-compression";
 
-const categoryOptions = ["Dining", "Nature", "Activities", "Shops", "Hidden Gems", "General"];
+const categoryOptions = [
+  "Dining",
+  "Nature",
+  "Activities",
+  "Shops",
+  "Hidden Gems",
+  "General",
+];
 const tagOptions = [
   "Family Friendly",
   "Dog Friendly",
@@ -37,48 +42,22 @@ function SubmitRecommendation({ isVisible }) {
     setMessage("");
 
     try {
-      const uploadedUrls = [];
+      const formData = new FormData();
+      formData.append("name", form.name);
+      formData.append("address", form.address);
+      formData.append("description", form.description);
+      formData.append("category", category);
+      formData.append("tags", JSON.stringify(tags));
+      files.forEach((f) => formData.append("photos", f));
 
-      // ✅ Upload to Supabase storage (allowed)
-      if (files.length > 0) {
-        for (const file of files) {
-          const compressed = await imageCompression(file, {
-            maxWidthOrHeight: 1920,
-            maxSizeMB: 0.5,
-          });
-
-          const filePath = `uploads/${Date.now()}-${file.name}`;
-          const { error: uploadError } = await supabase.storage
-            .from("recommendations")
-            .upload(filePath, compressed);
-
-          if (uploadError) throw uploadError;
-
-          const { data: publicUrlData } = supabase.storage
-            .from("recommendations")
-            .getPublicUrl(filePath);
-
-          uploadedUrls.push(publicUrlData.publicUrl);
-        }
-      }
-
-      // ✅ POST to your own API route (not Supabase)
       const res = await fetch("/api/recommendations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          address: form.address,
-          description: form.description,
-          category,
-          tags,
-          photos: uploadedUrls,
-        }),
+        body: formData,
       });
 
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(`API error (${res.status}): ${text}`);
+        throw new Error(`API error ${res.status}: ${text}`);
       }
 
       setMessage("Recommendation submitted! Awaiting approval.");
@@ -102,8 +81,10 @@ function SubmitRecommendation({ isVisible }) {
           : "max-h-0 opacity-0 -translate-y-4"
       } overflow-hidden`}
     >
-      <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6 space-y-4">
-        {/* Place Name */}
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white shadow-md rounded-lg p-6 space-y-4"
+      >
         <div>
           <label className="block text-sm font-semibold mb-1">Place Name *</label>
           <input
@@ -116,7 +97,6 @@ function SubmitRecommendation({ isVisible }) {
           />
         </div>
 
-        {/* Address */}
         <div>
           <label className="block text-sm font-semibold mb-1">Address</label>
           <input
@@ -128,7 +108,6 @@ function SubmitRecommendation({ isVisible }) {
           />
         </div>
 
-        {/* Description */}
         <div>
           <label className="block text-sm font-semibold mb-1">Description *</label>
           <textarea
@@ -142,7 +121,6 @@ function SubmitRecommendation({ isVisible }) {
           />
         </div>
 
-        {/* Category dropdown */}
         <div>
           <label className="block text-sm font-semibold mb-1">Category *</label>
           <select
@@ -152,16 +130,15 @@ function SubmitRecommendation({ isVisible }) {
             className="border w-full p-2 rounded-md"
           >
             {categoryOptions.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+              <option key={c}>{c}</option>
             ))}
           </select>
         </div>
 
-        {/* Tags */}
         <div>
-          <label className="block text-sm font-semibold mb-1">Tags (select all that apply)</label>
+          <label className="block text-sm font-semibold mb-1">
+            Tags (select all that apply)
+          </label>
           <div className="flex flex-wrap gap-3">
             {tagOptions.map((tag) => (
               <label key={tag} className="flex items-center gap-2 text-sm">
@@ -169,7 +146,8 @@ function SubmitRecommendation({ isVisible }) {
                   type="checkbox"
                   checked={tags.includes(tag)}
                   onChange={(e) => {
-                    if (e.target.checked) setTags((prev) => [...prev, tag]);
+                    if (e.target.checked)
+                      setTags((prev) => [...prev, tag]);
                     else setTags((prev) => prev.filter((t) => t !== tag));
                   }}
                 />
@@ -179,9 +157,10 @@ function SubmitRecommendation({ isVisible }) {
           </div>
         </div>
 
-        {/* Photos */}
         <div>
-          <label className="block text-sm font-semibold mb-1">Photos (optional, up to 4)</label>
+          <label className="block text-sm font-semibold mb-1">
+            Photos (optional, up to 4)
+          </label>
           <label
             htmlFor="fileInput"
             className="inline-block bg-gray-100 text-gray-700 border border-gray-300 text-sm px-3 py-1.5 rounded-md cursor-pointer hover:bg-gray-200 transition"
