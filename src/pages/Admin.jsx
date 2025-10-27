@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import BookingsTable from '../components/BookingsTable';
 
 function Admin() {
   const [session, setSession] = useState(null);
@@ -93,22 +94,24 @@ function Admin() {
 
         {/* Role-based content */}
         {userRole === 'Admin' && (
-          <div>
-            <h3 className="text-xl font-heading text-primary mb-3">Full Access</h3>
-            <p className="text-gray-700">
-              You can manage bookings, recommendations, and users here (coming soon).
-            </p>
-          </div>
-        )}
+           <div>
+    <h3 className="text-xl font-heading text-primary mb-3">Full Access</h3>
+    <p className="text-gray-700 mb-6">
+      You can manage bookings, recommendations, and users here (coming soon).
+    </p>
+    <BookingsTable /> {/* 👈 table appears here */}
+  </div>
+)}
 
         {userRole === 'Approver' && (
-          <div>
-            <h3 className="text-xl font-heading text-primary mb-3">Bookings Approvals</h3>
-            <p className="text-gray-700">
-              You can view and approve bookings here (bookings table coming next).
-            </p>
-          </div>
-        )}
+         <div>
+    <h3 className="text-xl font-heading text-primary mb-3">Bookings Approvals</h3>
+    <p className="text-gray-700 mb-6">
+      You can view and approve bookings here.
+    </p>
+    <BookingsTable /> {/* 👈 same table for Approvers */}
+  </div>
+)}
 
         {!['Admin', 'Approver'].includes(userRole) && (
           <div className="text-red-600 font-semibold">
