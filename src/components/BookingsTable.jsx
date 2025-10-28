@@ -43,13 +43,14 @@ useEffect(() => {
     if (match) {
       setSelected(match);
 
-      // consume the deep link so it doesn't reopen later
-      const newUrl = new URL(window.location);
-      newUrl.searchParams.delete('booking');
-      window.history.replaceState({}, '', newUrl);
+      // Tell parent we’ve handled it
+      if (typeof setDeepLinkId === 'function') {
+        setDeepLinkId(null);
+      }
     }
   }
 }, [deepLinkId, bookings]);
+
 
   // --- Load cancellation reason if selected booking is cancelled
   useEffect(() => {

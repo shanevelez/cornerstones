@@ -12,7 +12,8 @@ function Admin() {
   const [modalLoading, setModalLoading] = useState(false);
 
   const params = new URLSearchParams(location?.search || '');
-  const bookingIdFromURL = params.get('booking');
+ const [deepLinkId, setDeepLinkId] = useState(params.get('booking'));
+
 
   const fetchUserRole = async (userId) => {
     const { data, error } = await supabase
@@ -336,7 +337,7 @@ return (
             You can manage bookings, recommendations, and users here (coming soon).
           </p>
           <div className="overflow-x-auto">
-            <BookingsTable deepLinkId={bookingIdFromURL} userRole={userRole} />
+            <BookingsTable deepLinkId={deepLinkId} setDeepLinkId={setDeepLinkId} userRole={userRole} />
           </div>
         </div>
       )}
