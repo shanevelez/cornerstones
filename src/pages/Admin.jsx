@@ -375,6 +375,7 @@ function Admin() {
               <BookingsTable
                 deepLinkId={deepLinkId}
                 setDeepLinkId={setDeepLinkId}
+                userRole={userRole}
               />
             </div>
           </div>
