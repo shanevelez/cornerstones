@@ -185,7 +185,7 @@ const handleSubmit = async (e) => {
     // ✅ Success
     setSuccess("Booking request submitted successfully!");
 
-    // ✅ Reset everything
+    // ✅ Reset form and calendar (but stay in place so success is visible)
     setFormData({
       guest_name: "",
       guest_email: "",
@@ -196,10 +196,6 @@ const handleSubmit = async (e) => {
       family_member: false,
     });
     setRange({ from: undefined, to: undefined });
-    setShowDetails(false);
-
-    // Scroll back up to show success message
-    window.scrollTo({ top: 0, behavior: "smooth" });
   } catch (err) {
     console.error(err);
     setError("Something went wrong. Try again.");
