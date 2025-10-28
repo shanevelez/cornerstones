@@ -24,7 +24,7 @@ function SubmitRecommendation({ isVisible }) {
     name: "",
     address: "",
     description: "",
-    submitted_by: "", // 👈 NEW
+    submitted_by: "",
   });
   const [category, setCategory] = useState("General");
   const [tags, setTags] = useState([]);
@@ -50,9 +50,8 @@ function SubmitRecommendation({ isVisible }) {
       formData.append("description", form.description);
       formData.append("category", category);
       formData.append("tags", JSON.stringify(tags));
-      formData.append("submitted_by", form.submitted_by); // 👈 NEW
+      formData.append("submitted_by", form.submitted_by);
 
-      // compress locally before sending
       for (const file of files) {
         const compressed = await imageCompression(file, {
           maxWidthOrHeight: 1920,
@@ -67,6 +66,18 @@ function SubmitRecommendation({ isVisible }) {
       });
 
       if (!res.ok) throw new Error(`API ${res.status}`);
+
+      // ✅ Notify all admins
+      await fetch("/api/notify-admins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          category,
+          submitted_by: form.submitted_by,
+        }),
+      });
+
       setMessage("Recommendation submitted! Awaiting approval.");
       setForm({
         name: "",
@@ -92,15 +103,14 @@ function SubmitRecommendation({ isVisible }) {
       } overflow-hidden`}
     >
       {loading && (
-  <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-    <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
-  </div>
-)}
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+          <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
       <form
         onSubmit={handleSubmit}
         className="bg-white shadow-md rounded-lg p-6 space-y-4"
       >
-        {/* 👇 New Field */}
         <div>
           <label className="block font-semibold mb-1">Your Name *</label>
           <input
