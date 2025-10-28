@@ -8,36 +8,49 @@ function LocalRecs() {
   const [recs, setRecs] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [category, setCategory] = useState("All");
-  const [selected, setSelected] = useState(null); // main modal
-  const [fullImage, setFullImage] = useState(null); // 👈 full-size photo viewer
+  const [selected, setSelected] = useState(null);
+  const [fullImage, setFullImage] = useState(null);
 
   const categories = ["All", "Dining", "Nature", "Activities", "Shops", "Hidden Gems"];
 
-  useEffect(() => {
-  const handleKey = (e) => {
-    if (e.key === "Escape") {
-      if (fullImage) setFullImage(null);
-      else if (selected) setSelected(null);
-    }
+  // fallback image sets per category
+  const fallbackImages = {
+    Dining: ["/images/Dining1.jpg", "/images/Dining2.jpg", "/images/Dining3.jpg"],
+    Nature: ["/images/Nature1.jpg", "/images/Nature2.jpg", "/images/Nature3.jpg"],
+    Activities: ["/images/Activities1.jpg", "/images/Activities2.jpg", "/images/Activities3.jpg"],
+    Shops: ["/images/Shops1.jpg", "/images/Shops2.jpg", "/images/Shops3.jpg"],
+    "Hidden Gems": ["/images/HiddenGems1.jpg", "/images/HiddenGems2.jpg", "/images/HiddenGems3.jpg"],
+    Default: ["/images/Default1.jpg", "/images/Default2.jpg", "/images/Default3.jpg"],
   };
-  window.addEventListener("keydown", handleKey);
-  return () => window.removeEventListener("keydown", handleKey);
-}, [fullImage, selected]);
 
-// handle mobile back button
-useEffect(() => {
-  if (selected || fullImage) {
-    // Push a new history state so the back button closes the modal
-    window.history.pushState({ modalOpen: true }, "");
-    const handlePop = () => {
-      if (fullImage) setFullImage(null);
-      else if (selected) setSelected(null);
+  const getFallbackImage = (cat) => {
+    const list = fallbackImages[cat] || fallbackImages.Default;
+    const index = Math.floor(Math.random() * list.length);
+    return list[index];
+  };
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === "Escape") {
+        if (fullImage) setFullImage(null);
+        else if (selected) setSelected(null);
+      }
     };
-    window.addEventListener("popstate", handlePop);
-    return () => window.removeEventListener("popstate", handlePop);
-  }
-}, [selected, fullImage]);
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [fullImage, selected]);
 
+  useEffect(() => {
+    if (selected || fullImage) {
+      window.history.pushState({ modalOpen: true }, "");
+      const handlePop = () => {
+        if (fullImage) setFullImage(null);
+        else if (selected) setSelected(null);
+      };
+      window.addEventListener("popstate", handlePop);
+      return () => window.removeEventListener("popstate", handlePop);
+    }
+  }, [selected, fullImage]);
 
   useEffect(() => {
     const fetchApproved = async () => {
@@ -75,12 +88,10 @@ useEffect(() => {
           </button>
         </div>
 
-        {/* Expandable form */}
         <div className="mb-12 border-t pt-8">
           <SubmitRecommendation isVisible={showForm} />
         </div>
 
-        {/* Category bar */}
         <div className="flex flex-wrap justify-center gap-3 mb-8">
           {categories.map((c) => (
             <button
@@ -97,12 +108,11 @@ useEffect(() => {
           ))}
         </div>
 
-        {/* Grid of cards */}
         <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {recs.map((rec) => (
             <div
               key={rec.id}
-              onClick={() => setSelected(rec)} // 👈 open modal
+              onClick={() => setSelected(rec)}
               className="bg-white shadow rounded-lg overflow-hidden border hover:shadow-lg transition cursor-pointer"
             >
               {rec.photos?.length > 0 ? (
@@ -112,9 +122,11 @@ useEffect(() => {
                   className="w-full h-56 object-cover"
                 />
               ) : (
-                <div className="w-full h-56 bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
-                  No Image
-                </div>
+                <img
+                  src={getFallbackImage(rec.category)}
+                  alt={rec.category || "Default"}
+                  className="w-full h-56 object-cover opacity-90"
+                />
               )}
               <div className="p-4">
                 <h3 className="text-xl font-heading text-primary mb-2">{rec.name}</h3>
@@ -151,90 +163,92 @@ useEffect(() => {
         </section>
       </main>
 
-      {/* Modal for recommendation details */}
       {selected && (
-  <div
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-    onClick={() => setSelected(null)} // 👈 click outside closes
-  >
-    <div
-      className="bg-white rounded-lg shadow-lg max-w-lg w-full relative overflow-y-auto max-h-[90vh]"
-      onClick={(e) => e.stopPropagation()} // 👈 prevent closing when clicking inside modal
-    >
-      {/* the X button sits *above* everything */}
-      <button
-        onClick={() => setSelected(null)}
-        className="absolute top-2 right-3 z-20 text-gray-100 bg-black/40 hover:bg-black/60 rounded-full w-7 h-7 flex items-center justify-center text-lg"
-        aria-label="Close"
-      >
-        ×
-      </button>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelected(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-lg max-w-lg w-full relative overflow-y-auto max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setSelected(null)}
+              className="absolute top-2 right-3 z-20 text-gray-100 bg-black/40 hover:bg-black/60 rounded-full w-7 h-7 flex items-center justify-center text-lg"
+              aria-label="Close"
+            >
+              ×
+            </button>
 
-      {selected.photos?.length > 0 && (
-        <img
-          src={selected.photos[0]}
-          alt={selected.name}
-          onClick={() => setFullImage(selected.photos[0])}
-          className="w-full h-56 object-cover rounded-t-lg cursor-pointer"
-        />
+            {selected.photos?.length > 0 ? (
+              <img
+                src={selected.photos[0]}
+                alt={selected.name}
+                onClick={() => setFullImage(selected.photos[0])}
+                className="w-full h-56 object-cover rounded-t-lg cursor-pointer"
+              />
+            ) : (
+              <img
+                src={getFallbackImage(selected.category)}
+                alt={selected.category || "Default"}
+                className="w-full h-56 object-cover rounded-t-lg cursor-pointer opacity-90"
+              />
+            )}
+
+            <div className="p-6">
+              <h3 className="text-2xl font-heading text-primary mb-2">{selected.name}</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Category: {selected.category}
+              </p>
+
+              {selected.address && (
+                <p className="flex items-center text-gray-700 mb-3 text-sm">
+                  <MapPinIcon className="w-4 h-4 text-primary mr-1" />
+                  {selected.address}
+                </p>
+              )}
+
+              <p className="text-gray-700 whitespace-pre-line mb-4">
+                {selected.description}
+              </p>
+
+              {selected.photos?.length > 1 && (
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {selected.photos.slice(1).map((url, i) => (
+                    <img
+                      key={i}
+                      src={url}
+                      alt={`${selected.name} ${i + 2}`}
+                      onClick={() => setFullImage(url)}
+                      className="w-full h-36 object-cover rounded cursor-pointer"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {selected.tags?.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {selected.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {selected.submitted_by && (
+                <p className="text-xs text-gray-500">
+                  Submitted by {selected.submitted_by}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
-      <div className="p-6">
-        <h3 className="text-2xl font-heading text-primary mb-2">{selected.name}</h3>
-        <p className="text-sm text-gray-500 mb-4">
-          Category: {selected.category}
-        </p>
-
-        {selected.address && (
-          <p className="flex items-center text-gray-700 mb-3 text-sm">
-            <MapPinIcon className="w-4 h-4 text-primary mr-1" />
-            {selected.address}
-          </p>
-        )}
-
-        <p className="text-gray-700 whitespace-pre-line mb-4">
-          {selected.description}
-        </p>
-
-        {selected.photos?.length > 1 && (
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            {selected.photos.slice(1).map((url, i) => (
-              <img
-                key={i}
-                src={url}
-                alt={`${selected.name} ${i + 2}`}
-                onClick={() => setFullImage(url)}
-                className="w-full h-36 object-cover rounded cursor-pointer"
-              />
-            ))}
-          </div>
-        )}
-
-        {selected.tags?.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {selected.tags.map((tag) => (
-              <span
-                key={tag}
-                className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {selected.submitted_by && (
-          <p className="text-xs text-gray-500">
-            Submitted by {selected.submitted_by}
-          </p>
-        )}
-      </div>
-    </div>
-  </div>
-)}
-
-
-      {/* Full-size photo viewer */}
       {fullImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
