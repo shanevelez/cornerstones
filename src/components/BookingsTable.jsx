@@ -199,22 +199,75 @@ function BookingsTable({ deepLinkId }) {
                     className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-primary focus:outline-none"
                   />
 
-                  <div className="flex justify-end gap-3 pt-3">
-                    <button
-                      onClick={() => setSelected(null)}
-                      className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
-                    >
-                      Cancel
-                    </button>
+                <div className="flex justify-end gap-3 pt-3">
+  <button
+    onClick={() => setSelected(null)}
+    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
+  >
+    Cancel
+  </button>
 
-                    {/* Reject button */}
-                    {/* unchanged */}
-                    {/* Approve button */}
-                    {/* unchanged */}
-                  </div>
-                </div>
-              )}
-            </div>
+  <button
+    onClick={async () => {
+      try {
+        const res = await fetch('/api/approvals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            booking_id: selected.id,
+            user_id: selected.user_id,
+            action: 'rejected',
+            comment: document.getElementById('comment')?.value || '',
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          console.error('Reject failed:', err);
+          alert(`Error: ${err.error || 'Failed to reject booking.'}`);
+          return;
+        }
+        setSelected(null);
+      } catch (err) {
+        console.error('Network error:', err);
+        alert('Network error while rejecting booking.');
+      }
+    }}
+    className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+  >
+    Reject
+  </button>
+
+  <button
+    onClick={async () => {
+      try {
+        const res = await fetch('/api/approvals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            booking_id: selected.id,
+            user_id: selected.user_id,
+            action: 'approved',
+            comment: document.getElementById('comment')?.value || '',
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          console.error('Approve failed:', err);
+          alert(`Error: ${err.error || 'Failed to approve booking.'}`);
+          return;
+        }
+        setSelected(null);
+      } catch (err) {
+        console.error('Network error:', err);
+        alert('Network error while approving booking.');
+      }
+    }}
+    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+  >
+    Approve
+  </button>
+</div>
+
 
             {/* Footer */}
             {selected.status !== 'pending' && (
