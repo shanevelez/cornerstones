@@ -32,7 +32,6 @@ function BookingsTable({ deepLinkId }) {
     }
   }, [deepLinkId, bookings]);
 
-  // fetch cancellation reason if selected booking is cancelled
   useEffect(() => {
     const loadReason = async () => {
       if (selected?.status === 'cancelled') {
@@ -54,7 +53,6 @@ function BookingsTable({ deepLinkId }) {
     <section className="mt-8">
       <h3 className="text-2xl font-heading text-primary mb-4">Bookings</h3>
 
-      {/* Filter tabs */}
       <div className="flex gap-3 mb-6">
         {['pending', 'approved', 'rejected', 'cancelled'].map((s) => (
           <button
@@ -110,7 +108,6 @@ function BookingsTable({ deepLinkId }) {
         </div>
       )}
 
-      {/* Modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-xl overflow-hidden border border-gray-200">
@@ -186,7 +183,7 @@ function BookingsTable({ deepLinkId }) {
                 </div>
               )}
 
-              {/* Existing approve/reject actions untouched */}
+              {/* Approve / Reject controls */}
               {selected.status === 'pending' && (
                 <div className="mt-6 space-y-3 border-t pt-4">
                   <label className="block font-semibold text-gray-700">
@@ -199,75 +196,77 @@ function BookingsTable({ deepLinkId }) {
                     className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-primary focus:outline-none"
                   />
 
-                <div className="flex justify-end gap-3 pt-3">
-  <button
-    onClick={() => setSelected(null)}
-    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
-  >
-    Cancel
-  </button>
+                  <div className="flex justify-end gap-3 pt-3">
+                    <button
+                      onClick={() => setSelected(null)}
+                      className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
+                    >
+                      Cancel
+                    </button>
 
-  <button
-    onClick={async () => {
-      try {
-        const res = await fetch('/api/approvals', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            booking_id: selected.id,
-            user_id: selected.user_id,
-            action: 'rejected',
-            comment: document.getElementById('comment')?.value || '',
-          }),
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          console.error('Reject failed:', err);
-          alert(`Error: ${err.error || 'Failed to reject booking.'}`);
-          return;
-        }
-        setSelected(null);
-      } catch (err) {
-        console.error('Network error:', err);
-        alert('Network error while rejecting booking.');
-      }
-    }}
-    className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
-  >
-    Reject
-  </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/approvals', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              booking_id: selected.id,
+                              user_id: selected.user_id,
+                              action: 'rejected',
+                              comment: document.getElementById('comment')?.value || '',
+                            }),
+                          });
+                          if (!res.ok) {
+                            const err = await res.json();
+                            console.error('Reject failed:', err);
+                            alert(`Error: ${err.error || 'Failed to reject booking.'}`);
+                            return;
+                          }
+                          setSelected(null);
+                        } catch (err) {
+                          console.error('Network error:', err);
+                          alert('Network error while rejecting booking.');
+                        }
+                      }}
+                      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                    >
+                      Reject
+                    </button>
 
-  <button
-    onClick={async () => {
-      try {
-        const res = await fetch('/api/approvals', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            booking_id: selected.id,
-            user_id: selected.user_id,
-            action: 'approved',
-            comment: document.getElementById('comment')?.value || '',
-          }),
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          console.error('Approve failed:', err);
-          alert(`Error: ${err.error || 'Failed to approve booking.'}`);
-          return;
-        }
-        setSelected(null);
-      } catch (err) {
-        console.error('Network error:', err);
-        alert('Network error while approving booking.');
-      }
-    }}
-    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
-  >
-    Approve
-  </button>
-</div>
-
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/approvals', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              booking_id: selected.id,
+                              user_id: selected.user_id,
+                              action: 'approved',
+                              comment: document.getElementById('comment')?.value || '',
+                            }),
+                          });
+                          if (!res.ok) {
+                            const err = await res.json();
+                            console.error('Approve failed:', err);
+                            alert(`Error: ${err.error || 'Failed to approve booking.'}`);
+                            return;
+                          }
+                          setSelected(null);
+                        } catch (err) {
+                          console.error('Network error:', err);
+                          alert('Network error while approving booking.');
+                        }
+                      }}
+                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+                    >
+                      Approve
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Footer */}
             {selected.status !== 'pending' && (
