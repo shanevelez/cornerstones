@@ -307,59 +307,73 @@ function Admin() {
   if (!session) return null;
 
   return (
-    <section className="min-h-screen bg-neutralbg p-8">
-      <div className="max-w-5xl mx-auto bg-white shadow rounded-lg p-6 border-t-4 border-primary">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-3xl font-heading text-primary">Admin Dashboard</h2>
-            <p className="text-gray-600">Logged in as {session.user.email}</p>
-            <p className="text-gray-600 text-sm mt-1">Role: {userRole}</p>
-          </div>
-          <button
-            onClick={handleSignOut}
-            className="bg-primary text-white px-4 py-2 rounded-md shadow hover:bg-yellow-500 transition"
-          >
-            Sign Out
-          </button>
+  <section className="min-h-screen bg-neutralbg p-4 sm:p-8">
+    <div className="max-w-5xl mx-auto bg-white shadow rounded-lg p-4 sm:p-6 border-t-4 border-primary">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4 sm:gap-0">
+        <div className="text-center sm:text-left">
+          <h2 className="text-2xl sm:text-3xl font-heading text-primary">
+            Admin Dashboard
+          </h2>
+          <p className="text-gray-600 break-all">
+            Logged in as {session.user.email}
+          </p>
+          <p className="text-gray-600 text-sm mt-1">Role: {userRole}</p>
         </div>
+        <button
+          onClick={handleSignOut}
+          className="bg-primary text-white px-4 py-2 rounded-md shadow hover:bg-yellow-500 transition w-full sm:w-auto"
+        >
+          Sign Out
+        </button>
+      </div>
 
-        {userRole === 'Admin' && (
-          <div>
-            <h3 className="text-xl font-heading text-primary mb-3">Full Access</h3>
-            <p className="text-gray-700 mb-6">
-              You can manage bookings, recommendations, and users here (coming soon).
-            </p>
+      {userRole === "Admin" && (
+        <div>
+          <h3 className="text-lg sm:text-xl font-heading text-primary mb-3">
+            Full Access
+          </h3>
+          <p className="text-gray-700 mb-6 text-sm sm:text-base">
+            You can manage bookings, recommendations, and users here (coming soon).
+          </p>
+          <div className="overflow-x-auto">
             <BookingsTable deepLinkId={bookingIdFromURL} userRole={userRole} />
           </div>
-        )}
+        </div>
+      )}
 
-        {userRole === 'Approver' && (
-          <div>
-            <h3 className="text-xl font-heading text-primary mb-3">Bookings Approvals</h3>
-            <p className="text-gray-700 mb-6">
-              You can view and approve bookings here.
-            </p>
+      {userRole === "Approver" && (
+        <div>
+          <h3 className="text-lg sm:text-xl font-heading text-primary mb-3">
+            Bookings Approvals
+          </h3>
+          <p className="text-gray-700 mb-6 text-sm sm:text-base">
+            You can view and approve bookings here.
+          </p>
+          <div className="overflow-x-auto">
             <BookingsTable deepLinkId={bookingIdFromURL} />
           </div>
-        )}
+        </div>
+      )}
 
-        {!['Admin', 'Approver'].includes(userRole) && (
-          <div className="text-red-600 font-semibold">
-            Your account doesn’t have permission to access this dashboard.
-          </div>
-        )}
+      {!["Admin", "Approver"].includes(userRole) && (
+        <div className="text-red-600 font-semibold text-center sm:text-left">
+          Your account doesn’t have permission to access this dashboard.
+        </div>
+      )}
 
-        {userRole === "Admin" && (
-          <div className="mt-12">
-            <h3 className="text-2xl font-heading text-primary mb-4">
-              Local Recommendations – Pending Approval
-            </h3>
+      {userRole === "Admin" && (
+        <div className="mt-12">
+          <h3 className="text-xl sm:text-2xl font-heading text-primary mb-4">
+            Local Recommendations – Pending Approval
+          </h3>
+          <div className="overflow-x-auto">
             <AdminRecommendations />
           </div>
-        )}
-      </div>
-    </section>
-  );
-}
+        </div>
+      )}
+    </div>
+  </section>
+);
+
 
 export default Admin;
