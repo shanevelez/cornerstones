@@ -339,57 +339,70 @@ const payload = {
             {/* Counts */}
             <div>
               <label className="block font-sans text-sm mb-1">Number of Adults</label>
-              <input
-                type="number"
-                name="adults"
-                min="0"
-                value={formData.adults}
-                onChange={handleChange}
-                className="w-full border rounded-md px-4 py-2"
-              />
-            </div>
+              {/* Number of Adults */}
+<div>
+  <label className="block font-sans text-sm mb-1">Number of Adults</label>
+  <input
+    type="number"
+    name="adults"
+    min="0"
+    inputMode="numeric"
+    pattern="[0-9]*"
+    value={formData.adults}
+    onChange={handleChange}
+    className="w-full border rounded-md px-4 py-2"
+  />
+</div>
 
-            <div>
-              <label className="block font-sans text-sm mb-1">Number of Grandchildren Over 21</label>
-              <input
-  type="number"
-  name="adults"
-  min="0"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={formData.adults}
-  onChange={handleChange}
-                className="w-full border rounded-md px-4 py-2"
-              />
-            </div>
+{/* Number of Grandchildren Over 21 */}
+<div>
+  <label className="block font-sans text-sm mb-1">
+    Number of Grandchildren Over 21
+  </label>
+  <input
+    type="number"
+    name="grandchildren_over21"
+    min="0"
+    inputMode="numeric"
+    pattern="[0-9]*"
+    value={formData.grandchildren_over21}
+    onChange={handleChange}
+    className="w-full border rounded-md px-4 py-2"
+  />
+</div>
 
-            <div>
-              <label className="block font-sans text-sm mb-1">Number of Children aged 16+</label>
-              <input
-  type="number"
-  name="adults"
-  min="0"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={formData.adults}
-  onChange={handleChange}
-                className="w-full border rounded-md px-4 py-2"
-              />
-            </div>
+{/* Number of Children aged 16+ */}
+<div>
+  <label className="block font-sans text-sm mb-1">
+    Number of Children aged 16+
+  </label>
+  <input
+    type="number"
+    name="children_16plus"
+    min="0"
+    inputMode="numeric"
+    pattern="[0-9]*"
+    value={formData.children_16plus}
+    onChange={handleChange}
+    className="w-full border rounded-md px-4 py-2"
+  />
+</div>
 
-            <div>
-              <label className="block font-sans text-sm mb-1">Number of Students</label>
-             <input
-  type="number"
-  name="adults"
-  min="0"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={formData.adults}
-  onChange={handleChange}
-                className="w-full border rounded-md px-4 py-2"
-              />
-            </div>
+{/* Number of Students */}
+<div>
+  <label className="block font-sans text-sm mb-1">Number of Students</label>
+  <input
+    type="number"
+    name="students"
+    min="0"
+    inputMode="numeric"
+    pattern="[0-9]*"
+    value={formData.students}
+    onChange={handleChange}
+    className="w-full border rounded-md px-4 py-2"
+  />
+</div>
+
 
             {/* Family member (boolean checkbox) */}
             <div>
