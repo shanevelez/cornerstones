@@ -34,9 +34,8 @@ export default async function handler(req, res) {
         const address = normalize(fields.address);
         const description = normalize(fields.description);
         const category = normalize(fields.category);
-        const tags = fields.tags
-          ? JSON.parse(normalize(fields.tags))
-          : [];
+        const submitted_by = normalize(fields.submitted_by); // 👈 NEW
+        const tags = fields.tags ? JSON.parse(normalize(fields.tags)) : [];
         const uploadedUrls = [];
 
         // Handle uploads
@@ -65,8 +64,9 @@ export default async function handler(req, res) {
 
         // Insert into DB
         const query = `
-          INSERT INTO recommendations (name, address, description, category, tags, photos, status)
-          VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+          INSERT INTO recommendations 
+          (name, address, description, category, tags, photos, submitted_by, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
           RETURNING *;
         `;
 
@@ -77,6 +77,7 @@ export default async function handler(req, res) {
           category,
           tags,
           uploadedUrls,
+          submitted_by,
         ];
 
         const { rows } = await pool.query(query, values);

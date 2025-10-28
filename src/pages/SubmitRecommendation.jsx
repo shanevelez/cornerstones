@@ -1,7 +1,14 @@
 import { useState } from "react";
 import imageCompression from "browser-image-compression";
 
-const categoryOptions = ["Dining", "Nature", "Activities", "Shops", "Hidden Gems", "General"];
+const categoryOptions = [
+  "Dining",
+  "Nature",
+  "Activities",
+  "Shops",
+  "Hidden Gems",
+  "General",
+];
 const tagOptions = [
   "Family Friendly",
   "Dog Friendly",
@@ -13,7 +20,12 @@ const tagOptions = [
 ];
 
 function SubmitRecommendation({ isVisible }) {
-  const [form, setForm] = useState({ name: "", address: "", description: "" });
+  const [form, setForm] = useState({
+    name: "",
+    address: "",
+    description: "",
+    submitted_by: "", // 👈 NEW
+  });
   const [category, setCategory] = useState("General");
   const [tags, setTags] = useState([]);
   const [files, setFiles] = useState([]);
@@ -38,6 +50,7 @@ function SubmitRecommendation({ isVisible }) {
       formData.append("description", form.description);
       formData.append("category", category);
       formData.append("tags", JSON.stringify(tags));
+      formData.append("submitted_by", form.submitted_by); // 👈 NEW
 
       // compress locally before sending
       for (const file of files) {
@@ -55,7 +68,12 @@ function SubmitRecommendation({ isVisible }) {
 
       if (!res.ok) throw new Error(`API ${res.status}`);
       setMessage("Recommendation submitted! Awaiting approval.");
-      setForm({ name: "", address: "", description: "" });
+      setForm({
+        name: "",
+        address: "",
+        description: "",
+        submitted_by: "",
+      });
       setFiles([]);
       setTags([]);
       setCategory("General");
@@ -73,7 +91,23 @@ function SubmitRecommendation({ isVisible }) {
         isVisible ? "max-h-[1500px] opacity-100" : "max-h-0 opacity-0"
       } overflow-hidden`}
     >
-      <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6 space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white shadow-md rounded-lg p-6 space-y-4"
+      >
+        {/* 👇 New Field */}
+        <div>
+          <label className="block font-semibold mb-1">Your Name *</label>
+          <input
+            name="submitted_by"
+            value={form.submitted_by}
+            onChange={handleChange}
+            required
+            className="border w-full p-2 rounded-md"
+            placeholder="Your full name"
+          />
+        </div>
+
         <div>
           <label className="block font-semibold mb-1">Place Name *</label>
           <input
@@ -104,6 +138,7 @@ function SubmitRecommendation({ isVisible }) {
             onChange={handleChange}
             required
             className="border w-full p-2 rounded-md"
+            placeholder="Describe what makes this place worth visiting..."
           />
         </div>
 
@@ -143,7 +178,9 @@ function SubmitRecommendation({ isVisible }) {
         </div>
 
         <div>
-          <label className="block font-semibold mb-1">Photos (optional, up to 4)</label>
+          <label className="block font-semibold mb-1">
+            Photos (optional, up to 4)
+          </label>
           <label
             htmlFor="fileInput"
             className="inline-block bg-gray-100 text-gray-700 border border-gray-300 text-sm px-3 py-1.5 rounded-md cursor-pointer hover:bg-gray-200 transition"
