@@ -18,12 +18,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields.' });
     }
 
-    // Start a transaction
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // 1. Update the booking status
+      // 1️⃣ Update booking status
       const update = `
         UPDATE bookings
         SET status = $1
@@ -33,7 +32,7 @@ export default async function handler(req, res) {
       const { rows: updated } = await client.query(update, [action, booking_id]);
       if (!updated.length) throw new Error('Booking not found.');
 
-      // 2. Insert into approvals log
+      // 2️⃣ Insert into approvals log
       const insert = `
         INSERT INTO approvals (booking_id, user_id, action, comment)
         VALUES ($1, $2, $3, $4)
@@ -48,6 +47,22 @@ export default async function handler(req, res) {
 
       await client.query('COMMIT');
 
+      // 3️⃣ Trigger email notification
+      try {
+        await fetch(`${process.env.BASE_URL}/api/send-booking-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId: booking_id, // <-- exact field name expected by send-booking-status.js
+            status: action,        // rename 'action' to 'status'
+            comment: comment || '',
+          }),
+        });
+      } catch (emailErr) {
+        console.error('Email notification failed:', emailErr);
+      }
+
+      // 4️⃣ Respond
       res.status(200).json({
         success: true,
         booking: updated[0],
