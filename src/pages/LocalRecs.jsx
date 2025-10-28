@@ -14,6 +14,32 @@ function LocalRecs() {
   const categories = ["All", "Dining", "Nature", "Activities", "Shops", "Hidden Gems"];
 
   useEffect(() => {
+  const handleKey = (e) => {
+    if (e.key === "Escape") {
+      if (fullImage) setFullImage(null);
+      else if (selected) setSelected(null);
+    }
+  };
+  window.addEventListener("keydown", handleKey);
+  return () => window.removeEventListener("keydown", handleKey);
+}, [fullImage, selected]);
+
+// handle mobile back button
+useEffect(() => {
+  if (selected || fullImage) {
+    // Push a new history state so the back button closes the modal
+    window.history.pushState({ modalOpen: true }, "");
+    const handlePop = () => {
+      if (fullImage) setFullImage(null);
+      else if (selected) setSelected(null);
+    };
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }
+}, [selected, fullImage]);
+
+
+  useEffect(() => {
     const fetchApproved = async () => {
       let query = supabase
         .from("recommendations")
