@@ -5,11 +5,6 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-export const config = {
-  api: { bodyParser: true },
-  runtime: "nodejs",
-};
-
 export default async function handler(req, res) {
   if (req.method === "POST") {
     try {
@@ -24,31 +19,30 @@ export default async function handler(req, res) {
         VALUES ($1, $2, $3, $4, $5, $6, 'pending')
         RETURNING *;
       `;
-
       const values = [
         name,
         address || null,
         description,
-        category,       // plain text, not an array
-        tags || [],     // text[]
-        photos || [],   // text[]
+        category, // plain string
+        tags || [],
+        photos || [],
       ];
 
       const { rows } = await pool.query(query, values);
-      return res.status(200).json({ success: true, recommendation: rows[0] });
+      res.status(200).json({ success: true, recommendation: rows[0] });
     } catch (error) {
       console.error("Insert error:", error);
-      return res.status(500).json({ error: "Failed to save recommendation" });
+      res.status(500).json({ error: "Failed to save recommendation" });
     }
   } else if (req.method === "GET") {
     try {
       const { rows } = await pool.query(
         "SELECT * FROM recommendations WHERE status = 'approved' ORDER BY created_at DESC;"
       );
-      return res.status(200).json(rows);
+      res.status(200).json(rows);
     } catch (error) {
       console.error("Fetch error:", error);
-      return res.status(500).json({ error: "Failed to load recommendations" });
+      res.status(500).json({ error: "Failed to load recommendations" });
     }
   } else {
     res.setHeader("Allow", ["GET", "POST"]);
