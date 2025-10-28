@@ -70,6 +70,82 @@ function Admin() {
     navigate('/login', { replace: true });
   };
 
+  function AdminRecommendations() {
+  const [recs, setRecs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPending = async () => {
+      const { data, error } = await supabase
+        .from("recommendations")
+        .select("*")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+      if (!error) setRecs(data);
+      setLoading(false);
+    };
+    fetchPending();
+  }, []);
+
+  const handleAction = async (id, action) => {
+    try {
+      const res = await fetch("/api/approve-recommendation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+      if (res.ok) {
+        setRecs((prev) => prev.filter((r) => r.id !== id));
+      }
+    } catch (err) {
+      console.error("Action failed:", err);
+    }
+  };
+
+  if (loading) return <p>Loading recommendations…</p>;
+  if (recs.length === 0)
+    return <p className="text-gray-600">No pending recommendations.</p>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-left border border-gray-200">
+        <thead className="bg-gray-100 text-gray-700">
+          <tr>
+            <th className="px-4 py-2 border-b">Name</th>
+            <th className="px-4 py-2 border-b">Category</th>
+            <th className="px-4 py-2 border-b">Submitted By</th>
+            <th className="px-4 py-2 border-b text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {recs.map((r) => (
+            <tr key={r.id}>
+              <td className="px-4 py-2 border-b">{r.name}</td>
+              <td className="px-4 py-2 border-b">{r.category}</td>
+              <td className="px-4 py-2 border-b">{r.submitted_by}</td>
+              <td className="px-4 py-2 border-b text-center">
+                <button
+                  onClick={() => handleAction(r.id, "approved")}
+                  className="bg-green-600 text-white px-3 py-1 rounded mr-2 hover:bg-green-700"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => handleAction(r.id, "rejected")}
+                  className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                >
+                  Reject
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+
   // ---- UI ----
   if (loading) {
     return (
@@ -124,6 +200,16 @@ function Admin() {
             Your account doesn’t have permission to access this dashboard.
           </div>
         )}
+        {userRole === "Admin" && (
+  <div className="mt-12">
+    <h3 className="text-2xl font-heading text-primary mb-4">
+      Local Recommendations – Pending Approval
+    </h3>
+
+    <AdminRecommendations />
+  </div>
+)}
+
       </div>
     </section>
   );
