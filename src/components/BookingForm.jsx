@@ -207,6 +207,12 @@ const handleSubmit = async (e) => {
 
   return (
     <section id="booking" className="max-w-3xl mx-auto w-full py-16 px-6">
+      {loading && (
+  <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[1px] flex items-center justify-center">
+    <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
+  </div>
+)}
+
       <h3 className="text-3xl font-heading text-center text-primary mb-8">
         Request a Booking
       </h3>
