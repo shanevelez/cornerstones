@@ -393,14 +393,11 @@ const payload = {
             <div>
               <label className="block font-sans text-sm mb-1">Are you a family member?</label>
               <label className="flex items-center gap-2">
-               <input
-  type="number"
-  name="adults"
-  min="0"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={formData.adults}
-  onChange={handleChange}
+                <input
+                  type="checkbox"
+                  name="family_member"
+                  checked={formData.family_member}
+                  onChange={handleChange}
                 />
                 Family Member
               </label>
