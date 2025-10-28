@@ -1,13 +1,25 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 
-function BookingsTable({ deepLinkId }) {
+function BookingsTable({ deepLinkId, userRole }) {
   const [bookings, setBookings] = useState([]);
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [currentUserId, setCurrentUserId] = useState(null);
 
+  // --- Fetch the logged-in Supabase user (for approvals.user_id)
+  useEffect(() => {
+    const getUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) console.error('Failed to get user:', error);
+      if (data?.user) setCurrentUserId(data.user.id);
+    };
+    getUser();
+  }, []);
+
+  // --- Fetch bookings based on filter
   useEffect(() => {
     const fetchBookings = async () => {
       setLoading(true);
@@ -21,10 +33,10 @@ function BookingsTable({ deepLinkId }) {
       else setBookings(data);
       setLoading(false);
     };
-
     fetchBookings();
   }, [filter]);
 
+  // --- Deep-link open
   useEffect(() => {
     if (deepLinkId && bookings.length > 0) {
       const match = bookings.find((b) => b.id === Number(deepLinkId));
@@ -32,6 +44,7 @@ function BookingsTable({ deepLinkId }) {
     }
   }, [deepLinkId, bookings]);
 
+  // --- Load cancellation reason if selected booking is cancelled
   useEffect(() => {
     const loadReason = async () => {
       if (selected?.status === 'cancelled') {
@@ -49,10 +62,52 @@ function BookingsTable({ deepLinkId }) {
     loadReason();
   }, [selected]);
 
+  // --- Handle approve/reject action
+  const handleApproval = async (action) => {
+    try {
+      if (!currentUserId) {
+        alert('Missing approver ID — please log in again.');
+        return;
+      }
+      const comment = document.getElementById('comment')?.value || '';
+
+      const res = await fetch('/api/approvals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          booking_id: selected.id,
+          user_id: currentUserId,
+          action,
+          comment,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        console.error('Approval failed:', err);
+        alert(`Error: ${err.error || 'Failed to record approval.'}`);
+        return;
+      }
+
+      setSelected(null);
+      // Refresh bookings after action
+      const updated = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('status', filter)
+        .order('created_at', { ascending: false });
+      if (!updated.error) setBookings(updated.data);
+    } catch (err) {
+      console.error('Network error:', err);
+      alert('Network error while submitting approval.');
+    }
+  };
+
   return (
     <section className="mt-8">
       <h3 className="text-2xl font-heading text-primary mb-4">Bookings</h3>
 
+      {/* Filter tabs */}
       <div className="flex gap-3 mb-6">
         {['pending', 'approved', 'rejected', 'cancelled'].map((s) => (
           <button
@@ -69,6 +124,7 @@ function BookingsTable({ deepLinkId }) {
         ))}
       </div>
 
+      {/* Table */}
       {loading ? (
         <p className="text-gray-600">Loading bookings…</p>
       ) : bookings.length === 0 ? (
@@ -94,10 +150,10 @@ function BookingsTable({ deepLinkId }) {
                 >
                   <td className="px-4 py-2 border-b">{b.guest_name}</td>
                   <td className="px-4 py-2 border-b">
-                    {new Date(b.check_in).toLocaleDateString()}
+                    {new Date(b.check_in).toLocaleDateString('en-GB')}
                   </td>
                   <td className="px-4 py-2 border-b">
-                    {new Date(b.check_out).toLocaleDateString()}
+                    {new Date(b.check_out).toLocaleDateString('en-GB')}
                   </td>
                   <td className="px-4 py-2 border-b text-center">{b.adults}</td>
                   <td className="px-4 py-2 border-b capitalize">{b.status}</td>
@@ -108,6 +164,7 @@ function BookingsTable({ deepLinkId }) {
         </div>
       )}
 
+      {/* Modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-xl overflow-hidden border border-gray-200">
@@ -142,11 +199,11 @@ function BookingsTable({ deepLinkId }) {
               <div className="flex flex-col sm:flex-row sm:justify-between">
                 <p>
                   <span className="font-semibold">Check-in:</span>{' '}
-                  {new Date(selected.check_in).toLocaleDateString()}
+                  {new Date(selected.check_in).toLocaleDateString('en-GB')}
                 </p>
                 <p>
                   <span className="font-semibold">Check-out:</span>{' '}
-                  {new Date(selected.check_out).toLocaleDateString()}
+                  {new Date(selected.check_out).toLocaleDateString('en-GB')}
                 </p>
               </div>
 
@@ -175,7 +232,6 @@ function BookingsTable({ deepLinkId }) {
                 </span>
               </div>
 
-              {/* show cancellation reason if cancelled */}
               {selected.status === 'cancelled' && (
                 <div className="mt-4 border-t pt-3">
                   <p className="font-semibold text-red-700">Cancellation Reason:</p>
@@ -183,7 +239,7 @@ function BookingsTable({ deepLinkId }) {
                 </div>
               )}
 
-              {/* Approve / Reject controls */}
+              {/* Approve/Reject */}
               {selected.status === 'pending' && (
                 <div className="mt-6 space-y-3 border-t pt-4">
                   <label className="block font-semibold text-gray-700">
@@ -204,65 +260,22 @@ function BookingsTable({ deepLinkId }) {
                       Cancel
                     </button>
 
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await fetch('/api/approvals', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              booking_id: selected.id,
-                              user_id: selected.user_id,
-                              action: 'rejected',
-                              comment: document.getElementById('comment')?.value || '',
-                            }),
-                          });
-                          if (!res.ok) {
-                            const err = await res.json();
-                            console.error('Reject failed:', err);
-                            alert(`Error: ${err.error || 'Failed to reject booking.'}`);
-                            return;
-                          }
-                          setSelected(null);
-                        } catch (err) {
-                          console.error('Network error:', err);
-                          alert('Network error while rejecting booking.');
-                        }
-                      }}
-                      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
-                    >
-                      Reject
-                    </button>
-
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await fetch('/api/approvals', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              booking_id: selected.id,
-                              user_id: selected.user_id,
-                              action: 'approved',
-                              comment: document.getElementById('comment')?.value || '',
-                            }),
-                          });
-                          if (!res.ok) {
-                            const err = await res.json();
-                            console.error('Approve failed:', err);
-                            alert(`Error: ${err.error || 'Failed to approve booking.'}`);
-                            return;
-                          }
-                          setSelected(null);
-                        } catch (err) {
-                          console.error('Network error:', err);
-                          alert('Network error while approving booking.');
-                        }
-                      }}
-                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
-                    >
-                      Approve
-                    </button>
+                    {['Admin', 'Approver'].includes(userRole) && (
+                      <>
+                        <button
+                          onClick={() => handleApproval('rejected')}
+                          className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          onClick={() => handleApproval('approved')}
+                          className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+                        >
+                          Approve
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
