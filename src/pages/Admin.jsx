@@ -8,13 +8,23 @@ function Admin() {
   const [userRole, setUserRole] = useState('');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const location = useLocation(); 
+  const location = useLocation();
   const [modalLoading, setModalLoading] = useState(false);
 
+  // --- Read booking deep link from URL
   const params = new URLSearchParams(location?.search || '');
- const [deepLinkId, setDeepLinkId] = useState(params.get('booking'));
+  const [deepLinkId, setDeepLinkId] = useState(params.get('booking'));
 
+  // --- Remove ?booking= param from URL once it's consumed
+  useEffect(() => {
+    if (deepLinkId === null) {
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.delete('booking');
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [deepLinkId]);
 
+  // --- Fetch user role
   const fetchUserRole = async (userId) => {
     const { data, error } = await supabase
       .from('users')
@@ -28,6 +38,7 @@ function Admin() {
     return data?.role || '';
   };
 
+  // --- Init session + role
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
@@ -45,18 +56,21 @@ function Admin() {
 
     init();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (!session) {
-        setUserRole('');
-        setLoading(false);
-        navigate('/login', { replace: true });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        if (!session) {
+          setUserRole('');
+          setLoading(false);
+          navigate('/login', { replace: true });
+        }
       }
-    });
+    );
 
     return () => listener.subscription.unsubscribe();
   }, [navigate]);
 
+  // --- Sign out
   const handleSignOut = async () => {
     setLoading(true);
     await supabase.auth.signOut();
@@ -66,6 +80,7 @@ function Admin() {
     navigate('/login', { replace: true });
   };
 
+  // --- Admin Recommendations subcomponent (unchanged)
   function AdminRecommendations() {
     const [recs, setRecs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -75,10 +90,10 @@ function Admin() {
     useEffect(() => {
       const fetchPending = async () => {
         const { data, error } = await supabase
-          .from("recommendations")
-          .select("*")
-          .eq("status", "pending")
-          .order("created_at", { ascending: false });
+          .from('recommendations')
+          .select('*')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
         if (!error) setRecs(data);
         setLoading(false);
       };
@@ -88,9 +103,9 @@ function Admin() {
     const handleAction = async (id, action) => {
       setModalLoading(true);
       try {
-        const res = await fetch("/api/approve-recommendation", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch('/api/approve-recommendation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, action }),
         });
         if (res.ok) {
@@ -99,7 +114,7 @@ function Admin() {
           setEdit(null);
         }
       } catch (err) {
-        console.error("Action failed:", err);
+        console.error('Action failed:', err);
       } finally {
         setModalLoading(false);
       }
@@ -109,27 +124,27 @@ function Admin() {
       setModalLoading(true);
       try {
         const formData = new FormData();
-        formData.append("id", id);
+        formData.append('id', id);
         Object.entries(fields).forEach(([key, val]) => {
           if (Array.isArray(val)) {
             formData.append(key, JSON.stringify(val));
           } else {
-            formData.append(key, val ?? "");
+            formData.append(key, val ?? '');
           }
         });
 
-        const res = await fetch("/api/update-recommendation", {
-          method: "POST",
+        const res = await fetch('/api/update-recommendation', {
+          method: 'POST',
           body: formData,
         });
 
-        if (!res.ok) throw new Error("Failed to update");
+        if (!res.ok) throw new Error('Failed to update');
         const data = await res.json();
 
         setSelected(data.recommendation);
-        alert("Changes saved");
+        alert('Changes saved');
       } catch (err) {
-        console.error("Save error:", err);
+        console.error('Save error:', err);
       } finally {
         setModalLoading(false);
       }
@@ -277,13 +292,13 @@ function Admin() {
                 </button>
                 <div className="flex gap-3">
                   <button
-                    onClick={() => handleAction(edit.id, "rejected")}
+                    onClick={() => handleAction(edit.id, 'rejected')}
                     className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
                   >
                     Reject
                   </button>
                   <button
-                    onClick={() => handleAction(edit.id, "approved")}
+                    onClick={() => handleAction(edit.id, 'approved')}
                     className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
                   >
                     Approve
@@ -297,6 +312,7 @@ function Admin() {
     );
   }
 
+  // --- Loading / auth guard
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-gray-600">
@@ -307,75 +323,82 @@ function Admin() {
 
   if (!session) return null;
 
-return (
-  <section className="min-h-screen bg-neutralbg p-4 sm:p-8">
-    <div className="max-w-5xl mx-auto bg-white shadow rounded-lg p-4 sm:p-6 border-t-4 border-primary">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4 sm:gap-0">
-        <div className="text-center sm:text-left">
-          <h2 className="text-2xl sm:text-3xl font-heading text-primary">
-            Admin Dashboard
-          </h2>
-          <p className="text-gray-600 break-all">
-            Logged in as {session.user.email}
-          </p>
-          <p className="text-gray-600 text-sm mt-1">Role: {userRole}</p>
+  // --- Render
+  return (
+    <section className="min-h-screen bg-neutralbg p-4 sm:p-8">
+      <div className="max-w-5xl mx-auto bg-white shadow rounded-lg p-4 sm:p-6 border-t-4 border-primary">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4 sm:gap-0">
+          <div className="text-center sm:text-left">
+            <h2 className="text-2xl sm:text-3xl font-heading text-primary">
+              Admin Dashboard
+            </h2>
+            <p className="text-gray-600 break-all">
+              Logged in as {session.user.email}
+            </p>
+            <p className="text-gray-600 text-sm mt-1">Role: {userRole}</p>
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="bg-primary text-white px-4 py-2 rounded-md shadow hover:bg-yellow-500 transition w-full sm:w-auto"
+          >
+            Sign Out
+          </button>
         </div>
-        <button
-          onClick={handleSignOut}
-          className="bg-primary text-white px-4 py-2 rounded-md shadow hover:bg-yellow-500 transition w-full sm:w-auto"
-        >
-          Sign Out
-        </button>
+
+        {userRole === 'Admin' && (
+          <div>
+            <h3 className="text-lg sm:text-xl font-heading text-primary mb-3">
+              Full Access
+            </h3>
+            <p className="text-gray-700 mb-6 text-sm sm:text-base">
+              You can manage bookings, recommendations, and users here (coming soon).
+            </p>
+            <div className="overflow-x-auto">
+              <BookingsTable
+                deepLinkId={deepLinkId}
+                setDeepLinkId={setDeepLinkId}
+                userRole={userRole}
+              />
+            </div>
+          </div>
+        )}
+
+        {userRole === 'Approver' && (
+          <div>
+            <h3 className="text-lg sm:text-xl font-heading text-primary mb-3">
+              Bookings Approvals
+            </h3>
+            <p className="text-gray-700 mb-6 text-sm sm:text-base">
+              You can view and approve bookings here.
+            </p>
+            <div className="overflow-x-auto">
+              <BookingsTable
+                deepLinkId={deepLinkId}
+                setDeepLinkId={setDeepLinkId}
+              />
+            </div>
+          </div>
+        )}
+
+        {!['Admin', 'Approver'].includes(userRole) && (
+          <div className="text-red-600 font-semibold text-center sm:text-left">
+            Your account doesn’t have permission to access this dashboard.
+          </div>
+        )}
+
+        {userRole === 'Admin' && (
+          <div className="mt-12">
+            <h3 className="text-xl sm:text-2xl font-heading text-primary mb-4">
+              Local Recommendations – Pending Approval
+            </h3>
+            <div className="overflow-x-auto">
+              <AdminRecommendations />
+            </div>
+          </div>
+        )}
       </div>
-
-      {userRole === "Admin" && (
-        <div>
-          <h3 className="text-lg sm:text-xl font-heading text-primary mb-3">
-            Full Access
-          </h3>
-          <p className="text-gray-700 mb-6 text-sm sm:text-base">
-            You can manage bookings, recommendations, and users here (coming soon).
-          </p>
-          <div className="overflow-x-auto">
-            <BookingsTable deepLinkId={deepLinkId} setDeepLinkId={setDeepLinkId} userRole={userRole} />
-          </div>
-        </div>
-      )}
-
-      {userRole === "Approver" && (
-        <div>
-          <h3 className="text-lg sm:text-xl font-heading text-primary mb-3">
-            Bookings Approvals
-          </h3>
-          <p className="text-gray-700 mb-6 text-sm sm:text-base">
-            You can view and approve bookings here.
-          </p>
-          <div className="overflow-x-auto">
-            <BookingsTable deepLinkId={bookingIdFromURL} />
-          </div>
-        </div>
-      )}
-
-      {!["Admin", "Approver"].includes(userRole) && (
-        <div className="text-red-600 font-semibold text-center sm:text-left">
-          Your account doesn’t have permission to access this dashboard.
-        </div>
-      )}
-
-      {userRole === "Admin" && (
-        <div className="mt-12">
-          <h3 className="text-xl sm:text-2xl font-heading text-primary mb-4">
-            Local Recommendations – Pending Approval
-          </h3>
-          <div className="overflow-x-auto">
-            <AdminRecommendations />
-          </div>
-        </div>
-      )}
-    </div>
-  </section>
-);
-
+    </section>
+  );
 }
 
 export default Admin;
