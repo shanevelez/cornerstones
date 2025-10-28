@@ -1,200 +1,193 @@
 import { useRef, useState, useEffect } from "react";
 import { format, differenceInCalendarDays } from "date-fns";
 import { enGB } from "date-fns/locale";
-import { supabase } from "../supabaseClient";    
+import { supabase } from "../supabaseClient";
 import BookingCalendar from "./BookingCalendar";
 
-
 // ---- helpers ----
-const dateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
+const dateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const sameDay = (a, b) =>
-  a && b && dateOnly(a).getTime() === dateOnly(b).getTime()
+  a && b && dateOnly(a).getTime() === dateOnly(b).getTime();
 
 const overlapsExceptEdges = (r, b) => {
-  const start = dateOnly(r.from)
-  const end = dateOnly(r.to)
-  const bStart = dateOnly(b.from)
-  const bEnd = dateOnly(b.to)
-  const overlaps = start < bEnd && end > bStart
-  const allowedEdge = sameDay(start, bEnd) || sameDay(end, bStart)
-  if (!overlaps) return false
-  if (sameDay(start, bStart) || sameDay(end, bEnd)) return true
-  return !allowedEdge
-}
+  const start = dateOnly(r.from);
+  const end = dateOnly(r.to);
+  const bStart = dateOnly(b.from);
+  const bEnd = dateOnly(b.to);
+  const overlaps = start < bEnd && end > bStart;
+  const allowedEdge = sameDay(start, bEnd) || sameDay(end, bStart);
+  if (!overlaps) return false;
+  if (sameDay(start, bStart) || sameDay(end, bEnd)) return true;
+  return !allowedEdge;
+};
 
-// Is a back-to-back edge (both a booking end and another booking start)?
 const isBlockedEdge = (day, bookings) =>
   bookings.some((b) => sameDay(day, b.to)) &&
-  bookings.some((b) => sameDay(day, b.from))
+  bookings.some((b) => sameDay(day, b.from));
 
-// TODO: set to your Render URL when deployed
-const API_BASE = "/api"
+const API_BASE = "/api";
 
 function BookingForm() {
-  const [range, setRange] = useState({ from: undefined, to: undefined })
-  const [error, setError] = useState("")
-  const [showDetails, setShowDetails] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState("")
-  const detailsRef = useRef(null)
+  const [range, setRange] = useState({ from: undefined, to: undefined });
+  const [error, setError] = useState("");
+  const [showDetails, setShowDetails] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState("");
+  const detailsRef = useRef(null);
 
-const [formData, setFormData] = useState({
-  guest_name: "",
-  guest_email: "",
-  adults: "",
-  grandchildren_over21: "",
-  children_16plus: "",
-  students: "",
-  family_member: false,
-});
+  const [formData, setFormData] = useState({
+    guest_name: "",
+    guest_email: "",
+    adults: "",
+    grandchildren_over21: "",
+    children_16plus: "",
+    students: "",
+    family_member: false,
+  });
 
-  
-const [bookings, setBookings] = useState([]);
+  const [bookings, setBookings] = useState([]);
 
-useEffect(() => {
-  const fetchBookings = async () => {
-    const { data, error } = await supabase
-      .from('bookings')
-      .select('check_in, check_out, status')
-      .in('status', ['pending', 'approved']); // Only block pending + approved
+  useEffect(() => {
+    const fetchBookings = async () => {
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("check_in, check_out, status")
+        .in("status", ["pending", "approved"]);
 
-    if (error) {
-      console.error('Error loading bookings:', error);
+      if (error) {
+        console.error("Error loading bookings:", error);
+        return;
+      }
+
+      const formatted = data.map((b) => ({
+        from: new Date(b.check_in),
+        to: new Date(b.check_out),
+      }));
+
+      setBookings(formatted);
+    };
+
+    fetchBookings();
+  }, []);
+
+  const handleSelect = (next) => {
+    if (!next) return;
+
+    if (next.from && (!next.to || sameDay(next.from, next.to))) {
+      if (range.from && !range.to && sameDay(next.from, range.from)) {
+        setRange({ from: undefined, to: undefined });
+        setError("");
+        return;
+      }
+      if (bookings.some((b) => sameDay(next.from, b.from))) {
+        setError("That date is check-out only.");
+        return;
+      }
+      if (isBlockedEdge(next.from, bookings)) {
+        setError("That day is fully occupied by back-to-back bookings.");
+        return;
+      }
+      setError("");
+      setRange({ from: next.from, to: undefined });
       return;
     }
 
-    const formatted = data.map((b) => ({
-      from: new Date(b.check_in),
-      to: new Date(b.check_out),
-    }));
-
-    setBookings(formatted);
-  };
-
-  fetchBookings();
-}, []);
-
-  const handleSelect = (next) => {
-    if (!next) return
-
-    // first click (start)
-    if (next.from && (!next.to || sameDay(next.from, next.to))) {
-      if (range.from && !range.to && sameDay(next.from, range.from)) {
-        setRange({ from: undefined, to: undefined })
-        setError("")
-        return
-      }
-      if (bookings.some((b) => sameDay(next.from, b.from))) {
-        setError("That date is check-out only.")
-        return
-      }
-      if (isBlockedEdge(next.from, bookings)) {
-        setError("That day is fully occupied by back-to-back bookings.")
-        return
-      }
-      setError("")
-      setRange({ from: next.from, to: undefined })
-      return
-    }
-
-    // full range picked
     if (next.from && next.to && !sameDay(next.from, next.to)) {
-      const nights = differenceInCalendarDays(next.to, next.from)
+      const nights = differenceInCalendarDays(next.to, next.from);
       if (nights > 21) {
-        setError("Bookings cannot be longer than 3 weeks.")
-        return
+        setError("Bookings cannot be longer than 3 weeks.");
+        return;
       }
-      const illegal = bookings.some((b) => overlapsExceptEdges(next, b))
+      const illegal = bookings.some((b) => overlapsExceptEdges(next, b));
       if (illegal) {
-        setError("That range overlaps an existing booking.")
-        return
+        setError("That range overlaps an existing booking.");
+        return;
       }
       if (isBlockedEdge(next.to, bookings)) {
-        setError("Your check-out falls on a fully occupied changeover day.")
-        return
+        setError("Your check-out falls on a fully occupied changeover day.");
+        return;
       }
-      setError("")
-      setRange(next)
+      setError("");
+      setRange(next);
     }
-  }
+  };
 
   const clearDates = () => {
-    setRange({ from: undefined, to: undefined })
-    setError("")
-    setShowDetails(false)
-    setSuccess("")
-  }
+    setRange({ from: undefined, to: undefined });
+    setError("");
+    setShowDetails(false);
+    setSuccess("");
+  };
 
-  const isSameDaySel =
-    range.from && range.to && sameDay(range.from, range.to)
+  const isSameDaySel = range.from && range.to && sameDay(range.from, range.to);
 
   const nights =
     range.from && range.to && !isSameDaySel
       ? differenceInCalendarDays(range.to, range.from)
-      : 0
+      : 0;
 
-  const isInvalid = Boolean(error)
+  const isInvalid = Boolean(error);
 
-const handleChange = (e) => {
-  const { name, value, type, checked } = e.target;
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
 
-  setFormData((prev) => {
-    if (type === "checkbox") return { ...prev, [name]: checked };
+    setFormData((prev) => {
+      if (type === "checkbox") return { ...prev, [name]: checked };
 
-    // For numeric fields: only allow digits but keep as string
-    if (["adults", "grandchildren_over21", "children_16plus", "students"].includes(name)) {
-      if (value === "" || /^\d*$/.test(value)) {
-        return { ...prev, [name]: value };
+      if (
+        ["adults", "grandchildren_over21", "children_16plus", "students"].includes(
+          name
+        )
+      ) {
+        if (value === "" || /^\d*$/.test(value)) {
+          return { ...prev, [name]: value };
+        }
+        return prev;
       }
-      return prev; // ignore invalid characters
-    }
 
-    return { ...prev, [name]: value };
-  });
-};
-
-
+      return { ...prev, [name]: value };
+    });
+  };
 
   const handleRequestBooking = () => {
-    setShowDetails(true)
+    setShowDetails(true);
     setTimeout(() => {
-      detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-    }, 50)
-  }
+      detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setSuccess("")
-    setError("")
+    e.preventDefault();
+    setLoading(true);
+    setSuccess("");
+    setError("");
     try {
-const payload = {
-  check_in: format(range.from, "yyyy-MM-dd"),
-  check_out: format(range.to, "yyyy-MM-dd"),
-  ...formData,
-  adults: Number(formData.adults || 0),
-  grandchildren_over21: Number(formData.grandchildren_over21 || 0),
-  children_16plus: Number(formData.children_16plus || 0),
-  students: Number(formData.students || 0),
-};
-
+      const payload = {
+        check_in: format(range.from, "yyyy-MM-dd"),
+        check_out: format(range.to, "yyyy-MM-dd"),
+        ...formData,
+        adults: Number(formData.adults || 0),
+        grandchildren_over21: Number(formData.grandchildren_over21 || 0),
+        children_16plus: Number(formData.children_16plus || 0),
+        students: Number(formData.students || 0),
+      };
 
       const res = await fetch(`${API_BASE}/bookings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      })
+      });
 
-      if (!res.ok) throw new Error("Failed request")
-      await res.json()
-      setSuccess("Booking request submitted successfully!")
+      if (!res.ok) throw new Error("Failed request");
+      await res.json();
+      setSuccess("Booking request submitted successfully!");
     } catch (err) {
-      console.error(err)
-      setError("Something went wrong. Try again.")
+      console.error(err);
+      setError("Something went wrong. Try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <section id="booking" className="max-w-3xl mx-auto w-full py-16 px-6">
@@ -202,21 +195,30 @@ const payload = {
         Request a Booking
       </h3>
 
-      <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-8 space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white shadow-md rounded-lg p-8 space-y-6"
+      >
         {/* Step 1: Calendar */}
         <div className="flex flex-col space-y-2">
-          <label className="font-sans text-lg text-center">Select your dates:</label>
+          <label className="font-sans text-lg text-center">
+            Select your dates:
+          </label>
 
           {/* Legend */}
           <div className="mt-2 mb-4 flex flex-wrap justify-center gap-6 font-sans text-sm">
-            {/* Booked */}
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5" style={{ backgroundColor: "var(--booked-strong)" }} />
+              <div
+                className="w-5 h-5"
+                style={{ backgroundColor: "var(--booked-strong)" }}
+              />
               <span>Booked</span>
             </div>
-            {/* Checkout-only */}
             <div className="flex items-center gap-2">
-              <div className="relative w-5 h-5" style={{ backgroundColor: "var(--booked-soft)" }}>
+              <div
+                className="relative w-5 h-5"
+                style={{ backgroundColor: "var(--booked-soft)" }}
+              >
                 <div
                   className="absolute top-0 left-0 w-0 h-0"
                   style={{
@@ -227,9 +229,11 @@ const payload = {
               </div>
               <span>Available for check-out</span>
             </div>
-            {/* Checkin-only */}
             <div className="flex items-center gap-2">
-              <div className="relative w-5 h-5" style={{ backgroundColor: "var(--booked-soft)" }}>
+              <div
+                className="relative w-5 h-5"
+                style={{ backgroundColor: "var(--booked-soft)" }}
+              >
                 <div
                   className="absolute top-0 right-0 w-0 h-0"
                   style={{
@@ -243,10 +247,13 @@ const payload = {
           </div>
 
           <div className="flex justify-center">
-            <BookingCalendar range={range} onChange={handleSelect} bookings={bookings} />
+            <BookingCalendar
+              range={range}
+              onChange={handleSelect}
+              bookings={bookings}
+            />
           </div>
 
-          {/* Selection summary */}
           <p className="font-sans text-md text-center mt-4">
             {range.from && range.to && !isSameDaySel ? (
               <>
@@ -279,15 +286,17 @@ const payload = {
             </p>
           )}
 
-          {/* Calendar validation error (visible even before details step) */}
           {error && (
-            <p className="text-red-600 font-sans text-sm text-center" role="alert" aria-live="polite">
+            <p
+              className="text-red-600 font-sans text-sm text-center"
+              role="alert"
+              aria-live="polite"
+            >
               {error}
             </p>
           )}
         </div>
 
-        {/* Step 1 button */}
         {!showDetails && (
           <div className="flex justify-center">
             <button
@@ -305,10 +314,8 @@ const payload = {
           </div>
         )}
 
-        {/* Step 2: Extra fields */}
         {showDetails && (
           <div className="space-y-4" ref={detailsRef}>
-            {/* Name */}
             <div>
               <label className="block font-sans text-sm mb-1">Name</label>
               <input
@@ -322,7 +329,6 @@ const payload = {
               />
             </div>
 
-            {/* Email */}
             <div>
               <label className="block font-sans text-sm mb-1">Email</label>
               <input
@@ -336,77 +342,75 @@ const payload = {
               />
             </div>
 
-            {/* Counts */}
+            {/* Number fields */}
             <div>
-              <label className="block font-sans text-sm mb-1">Number of Adults</label>
-              {/* Number of Adults */}
-<div>
-  <label className="block font-sans text-sm mb-1">Number of Adults</label>
-  <input
-    type="number"
-    name="adults"
-    min="0"
-    inputMode="numeric"
-    pattern="[0-9]*"
-    value={formData.adults}
-    onChange={handleChange}
-    className="w-full border rounded-md px-4 py-2"
-  />
-</div>
+              <label className="block font-sans text-sm mb-1">
+                Number of Adults
+              </label>
+              <input
+                type="number"
+                name="adults"
+                min="0"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.adults}
+                onChange={handleChange}
+                className="w-full border rounded-md px-4 py-2"
+              />
+            </div>
 
-{/* Number of Grandchildren Over 21 */}
-<div>
-  <label className="block font-sans text-sm mb-1">
-    Number of Grandchildren Over 21
-  </label>
-  <input
-    type="number"
-    name="grandchildren_over21"
-    min="0"
-    inputMode="numeric"
-    pattern="[0-9]*"
-    value={formData.grandchildren_over21}
-    onChange={handleChange}
-    className="w-full border rounded-md px-4 py-2"
-  />
-</div>
-
-{/* Number of Children aged 16+ */}
-<div>
-  <label className="block font-sans text-sm mb-1">
-    Number of Children aged 16+
-  </label>
-  <input
-    type="number"
-    name="children_16plus"
-    min="0"
-    inputMode="numeric"
-    pattern="[0-9]*"
-    value={formData.children_16plus}
-    onChange={handleChange}
-    className="w-full border rounded-md px-4 py-2"
-  />
-</div>
-
-{/* Number of Students */}
-<div>
-  <label className="block font-sans text-sm mb-1">Number of Students</label>
-  <input
-    type="number"
-    name="students"
-    min="0"
-    inputMode="numeric"
-    pattern="[0-9]*"
-    value={formData.students}
-    onChange={handleChange}
-    className="w-full border rounded-md px-4 py-2"
-  />
-</div>
-
-
-            {/* Family member (boolean checkbox) */}
             <div>
-              <label className="block font-sans text-sm mb-1">Are you a family member?</label>
+              <label className="block font-sans text-sm mb-1">
+                Number of Grandchildren Over 21
+              </label>
+              <input
+                type="number"
+                name="grandchildren_over21"
+                min="0"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.grandchildren_over21}
+                onChange={handleChange}
+                className="w-full border rounded-md px-4 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block font-sans text-sm mb-1">
+                Number of Children aged 16+
+              </label>
+              <input
+                type="number"
+                name="children_16plus"
+                min="0"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.children_16plus}
+                onChange={handleChange}
+                className="w-full border rounded-md px-4 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block font-sans text-sm mb-1">
+                Number of Students
+              </label>
+              <input
+                type="number"
+                name="students"
+                min="0"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.students}
+                onChange={handleChange}
+                className="w-full border rounded-md px-4 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block font-sans text-sm mb-1">
+                Are you a family member?
+              </label>
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -416,10 +420,11 @@ const payload = {
                 />
                 Family Member
               </label>
-              <p className="text-xs text-gray-500 mt-1">Leave unchecked if non-family.</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Leave unchecked if non-family.
+              </p>
             </div>
 
-            {/* Submit */}
             <div className="flex justify-center">
               <button
                 type="submit"
@@ -430,34 +435,41 @@ const payload = {
               </button>
             </div>
 
-            {/* API success / error */}
             {success && (
-              <p className="text-green-600 font-sans text-sm text-center" role="status" aria-live="polite">
+              <p
+                className="text-green-600 font-sans text-sm text-center"
+                role="status"
+                aria-live="polite"
+              >
                 {success}
               </p>
             )}
             {error && (
-              <p className="text-red-600 font-sans text-sm text-center" role="alert" aria-live="polite">
+              <p
+                className="text-red-600 font-sans text-sm text-center"
+                role="alert"
+                aria-live="polite"
+              >
                 {error}
               </p>
             )}
           </div>
         )}
 
-{range.from && (
-  <div className="flex justify-center">
-    <button
-      type="button"
-      onClick={clearDates}
-      className="text-sm text-secondary underline hover:opacity-80"
-    >
-      Clear dates
-    </button>
-  </div>
-)}
+        {range.from && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={clearDates}
+              className="text-sm text-secondary underline hover:opacity-80"
+            >
+              Clear dates
+            </button>
+          </div>
+        )}
       </form>
     </section>
-  )
+  );
 }
 
-export default BookingForm
+export default BookingForm;
