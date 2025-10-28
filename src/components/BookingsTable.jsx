@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 
-function BookingsTable({ deepLinkId, userRole }) {
+function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   const [bookings, setBookings] = useState([]);
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // --- Fetch the logged-in Supabase user (for approvals.user_id)
+  // guard so deep link only fires once
+  const hasOpenedFromDeepLink = useRef(false);
+
+  // --- Fetch logged-in Supabase user
   useEffect(() => {
     const getUser = async () => {
       const { data, error } = await supabase.auth.getUser();
@@ -30,27 +34,28 @@ function BookingsTable({ deepLinkId, userRole }) {
         .order('created_at', { ascending: false });
 
       if (error) console.error('Error loading bookings:', error);
-      else setBookings(data);
+      else setBookings(data || []);
       setLoading(false);
     };
     fetchBookings();
   }, [filter]);
 
-// --- Deep-link open
-useEffect(() => {
-  if (deepLinkId && bookings.length > 0) {
+  // --- Deep-link open (fires once, self-destructs)
+  useEffect(() => {
+    if (!deepLinkId || hasOpenedFromDeepLink.current || bookings.length === 0) return;
+
     const match = bookings.find((b) => b.id === Number(deepLinkId));
     if (match) {
       setSelected(match);
+      hasOpenedFromDeepLink.current = true;
 
-      // Tell parent we’ve handled it
-      if (typeof setDeepLinkId === 'function') {
-        setDeepLinkId(null);
-      }
+      // clear parent state + URL immediately
+      if (typeof setDeepLinkId === 'function') setDeepLinkId(null);
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.delete('booking');
+      window.history.replaceState({}, '', newUrl);
     }
-  }
-}, [deepLinkId, bookings]);
-
+  }, [deepLinkId, bookings, setDeepLinkId]);
 
   // --- Load cancellation reason if selected booking is cancelled
   useEffect(() => {
@@ -69,10 +74,9 @@ useEffect(() => {
     };
     loadReason();
   }, [selected]);
-const [actionLoading, setActionLoading] = useState(false);
 
   // --- Handle approve/reject action
- const handleApproval = async (action) => {
+  const handleApproval = async (action) => {
     setActionLoading(true);
     try {
       if (!currentUserId) {
@@ -117,46 +121,44 @@ const [actionLoading, setActionLoading] = useState(false);
     }
   };
 
-
   return (
     <section className="mt-8">
       <h3 className="text-2xl font-heading text-primary mb-4">Bookings</h3>
 
-      {/* Filter tabs */}
       {/* Filter controls */}
-<div className="mb-6">
-  {/* Desktop: buttons */}
-  <div className="hidden sm:flex gap-3">
-    {['pending', 'approved', 'rejected', 'cancelled'].map((s) => (
-      <button
-        key={s}
-        onClick={() => setFilter(s)}
-        className={`px-4 py-2 rounded-md border ${
-          filter === s
-            ? 'bg-primary text-white'
-            : 'bg-white text-gray-700 hover:bg-gray-100'
-        }`}
-      >
-        {s.charAt(0).toUpperCase() + s.slice(1)}
-      </button>
-    ))}
-  </div>
+      <div className="mb-6">
+        {/* Desktop buttons */}
+        <div className="hidden sm:flex gap-3">
+          {['pending', 'approved', 'rejected', 'cancelled'].map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              className={`px-4 py-2 rounded-md border ${
+                filter === s
+                  ? 'bg-primary text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
 
-  {/* Mobile: dropdown */}
-  <div className="sm:hidden">
-    <select
-      value={filter}
-      onChange={(e) => setFilter(e.target.value)}
-      className="w-full border rounded-md p-2 bg-white text-gray-700"
-    >
-      {['pending', 'approved', 'rejected', 'cancelled'].map((s) => (
-        <option key={s} value={s}>
-          {s.charAt(0).toUpperCase() + s.slice(1)}
-        </option>
-      ))}
-    </select>
-  </div>
-</div>
+        {/* Mobile dropdown */}
+        <div className="sm:hidden">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="w-full border rounded-md p-2 bg-white text-gray-700"
+          >
+            {['pending', 'approved', 'rejected', 'cancelled'].map((s) => (
+              <option key={s} value={s}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       {/* Table */}
       {loading ? (
@@ -202,10 +204,10 @@ const [actionLoading, setActionLoading] = useState(false);
       {selected && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           {actionLoading && (
-  <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
-  </div>
-)}
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-50">
+              <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-xl overflow-hidden border border-gray-200">
             {/* Header */}
             <div className="flex justify-between items-center bg-primary text-white px-6 py-4">
@@ -222,7 +224,8 @@ const [actionLoading, setActionLoading] = useState(false);
             <div className="p-6 space-y-3 font-sans text-gray-800">
               <div className="flex flex-col sm:flex-row sm:justify-between">
                 <p>
-                  <span className="font-semibold">Guest:</span> {selected.guest_name}
+                  <span className="font-semibold">Guest:</span>{' '}
+                  {selected.guest_name}
                 </p>
                 <p>
                   <span className="font-semibold">Email:</span>{' '}
@@ -247,11 +250,26 @@ const [actionLoading, setActionLoading] = useState(false);
               </div>
 
               <div className="border-t pt-3 mt-3">
-                <p><span className="font-semibold">Adults:</span> {selected.adults}</p>
-                <p><span className="font-semibold">Grandchildren over 21:</span> {selected.grandchildren_over21}</p>
-                <p><span className="font-semibold">Children 16 +:</span> {selected.children_16plus}</p>
-                <p><span className="font-semibold">Students:</span> {selected.students}</p>
-                <p><span className="font-semibold">Family member:</span> {selected.family_member ? 'Yes' : 'No'}</p>
+                <p>
+                  <span className="font-semibold">Adults:</span>{' '}
+                  {selected.adults}
+                </p>
+                <p>
+                  <span className="font-semibold">Grandchildren over 21:</span>{' '}
+                  {selected.grandchildren_over21}
+                </p>
+                <p>
+                  <span className="font-semibold">Children 16 +:</span>{' '}
+                  {selected.children_16plus}
+                </p>
+                <p>
+                  <span className="font-semibold">Students:</span>{' '}
+                  {selected.students}
+                </p>
+                <p>
+                  <span className="font-semibold">Family member:</span>{' '}
+                  {selected.family_member ? 'Yes' : 'No'}
+                </p>
               </div>
 
               <div className="border-t pt-3 mt-3 flex justify-between items-center">
@@ -273,8 +291,12 @@ const [actionLoading, setActionLoading] = useState(false);
 
               {selected.status === 'cancelled' && (
                 <div className="mt-4 border-t pt-3">
-                  <p className="font-semibold text-red-700">Cancellation Reason:</p>
-                  <p className="bg-gray-50 border rounded-md p-2">{cancelReason}</p>
+                  <p className="font-semibold text-red-700">
+                    Cancellation Reason:
+                  </p>
+                  <p className="bg-gray-50 border rounded-md p-2">
+                    {cancelReason}
+                  </p>
                 </div>
               )}
 
