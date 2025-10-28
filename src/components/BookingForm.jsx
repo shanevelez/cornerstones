@@ -156,38 +156,58 @@ function BookingForm() {
     }, 50);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setSuccess("");
-    setError("");
-    try {
-      const payload = {
-        check_in: format(range.from, "yyyy-MM-dd"),
-        check_out: format(range.to, "yyyy-MM-dd"),
-        ...formData,
-        adults: Number(formData.adults || 0),
-        grandchildren_over21: Number(formData.grandchildren_over21 || 0),
-        children_16plus: Number(formData.children_16plus || 0),
-        students: Number(formData.students || 0),
-      };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setSuccess("");
+  setError("");
 
-      const res = await fetch(`${API_BASE}/bookings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+  try {
+    const payload = {
+      check_in: format(range.from, "yyyy-MM-dd"),
+      check_out: format(range.to, "yyyy-MM-dd"),
+      ...formData,
+      adults: Number(formData.adults || 0),
+      grandchildren_over21: Number(formData.grandchildren_over21 || 0),
+      children_16plus: Number(formData.children_16plus || 0),
+      students: Number(formData.students || 0),
+    };
 
-      if (!res.ok) throw new Error("Failed request");
-      await res.json();
-      setSuccess("Booking request submitted successfully!");
-    } catch (err) {
-      console.error(err);
-      setError("Something went wrong. Try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    const res = await fetch(`${API_BASE}/bookings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error("Failed request");
+    await res.json();
+
+    // ✅ Success
+    setSuccess("Booking request submitted successfully!");
+
+    // ✅ Reset everything
+    setFormData({
+      guest_name: "",
+      guest_email: "",
+      adults: "",
+      grandchildren_over21: "",
+      children_16plus: "",
+      students: "",
+      family_member: false,
+    });
+    setRange({ from: undefined, to: undefined });
+    setShowDetails(false);
+
+    // Scroll back up to show success message
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (err) {
+    console.error(err);
+    setError("Something went wrong. Try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <section id="booking" className="max-w-3xl mx-auto w-full py-16 px-6">
