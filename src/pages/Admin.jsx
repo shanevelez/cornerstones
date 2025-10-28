@@ -306,7 +306,7 @@ function Admin() {
 
   if (!session) return null;
 
-  return (
+return (
   <section className="min-h-screen bg-neutralbg p-4 sm:p-8">
     <div className="max-w-5xl mx-auto bg-white shadow rounded-lg p-4 sm:p-6 border-t-4 border-primary">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4 sm:gap-0">
@@ -375,5 +375,6 @@ function Admin() {
   </section>
 );
 
+}
 
 export default Admin;
