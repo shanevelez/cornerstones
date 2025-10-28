@@ -179,7 +179,7 @@ Further details are available in the information folder in the house.
 
     // ---- 3️⃣ Send via Resend ----
     await resend.emails.send({
-      from: 'Cornerstones Booking <onboarding@resend.dev>',
+      from: 'Cornerstones Booking <noreply@cornerstonescrantock.com>',
       to: guest_email,
       subject,
       html,
