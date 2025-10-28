@@ -183,7 +183,7 @@ const handleSubmit = async (e) => {
     await res.json();
 
     // ✅ Success
-    setSuccess("Booking request submitted successfully!");
+    setSuccess("Booking request submitted successfully! You will receive an email when your booking is confirmed.");
 
     // ✅ Reset form and calendar (but stay in place so success is visible)
     setFormData({

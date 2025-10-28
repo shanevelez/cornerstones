@@ -47,8 +47,8 @@ export default async function handler(req, res) {
         <td style="padding:24px;color:#333;">
           <p style="font-size:16px;margin:0 0 12px 0;"><strong>Guest:</strong> ${guest_name}</p>
           <p style="font-size:16px;margin:0 0 12px 0;">
-            <strong>Check-in:</strong> ${new Date(check_in).toLocaleDateString()}<br>
-            <strong>Check-out:</strong> ${new Date(check_out).toLocaleDateString()}
+            <strong>Check-in:</strong> ${new Date(check_in).toLocaleDateString('en-GB')}<br>
+            <strong>Check-out:</strong> ${new Date(check_out).toLocaleDateString('en-GB')}
           </p>
           <p style="font-size:15px;margin-top:24px;color:#444;">
             Please review and approve this booking below.

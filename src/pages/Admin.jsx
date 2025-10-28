@@ -331,7 +331,7 @@ const saveEdits = async (id, fields) => {
             <p className="text-gray-700 mb-6">
               You can manage bookings, recommendations, and users here (coming soon).
             </p>
-            <BookingsTable deepLinkId={bookingIdFromURL} /> {/* ✅ added prop */}
+           <BookingsTable deepLinkId={bookingIdFromURL} userRole={userRole} />
           </div>
         )}
 

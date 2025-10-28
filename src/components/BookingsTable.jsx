@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 
-function BookingsTable({ deepLinkId }) {
+function BookingsTable({ deepLinkId, userRole }) {
   const [bookings, setBookings] = useState([]);
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
@@ -200,18 +200,53 @@ function BookingsTable({ deepLinkId }) {
                   />
 
                   <div className="flex justify-end gap-3 pt-3">
-                    <button
-                      onClick={() => setSelected(null)}
-                      className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
-                    >
-                      Cancel
-                    </button>
+  <button
+    onClick={() => setSelected(null)}
+    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
+  >
+    Cancel
+  </button>
 
-                    {/* Reject button */}
-                    {/* unchanged */}
-                    {/* Approve button */}
-                    {/* unchanged */}
-                  </div>
+  {['Admin', 'Approver'].includes(userRole) && (
+    <>
+      <button
+        onClick={async () => {
+          try {
+            await fetch('/api/approve-booking', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: selected.id, action: 'rejected' }),
+            });
+            setSelected(null);
+          } catch (err) {
+            console.error('Reject failed:', err);
+          }
+        }}
+        className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+      >
+        Reject
+      </button>
+
+      <button
+        onClick={async () => {
+          try {
+            await fetch('/api/approve-booking', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: selected.id, action: 'approved' }),
+            });
+            setSelected(null);
+          } catch (err) {
+            console.error('Approve failed:', err);
+          }
+        }}
+        className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+      >
+        Approve
+      </button>
+    </>
+  )}
+</div>
                 </div>
               )}
             </div>

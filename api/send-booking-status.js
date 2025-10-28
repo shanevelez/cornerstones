@@ -59,11 +59,11 @@ const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
                   </tr>
                   <tr>
                     <td style="padding:8px;border:1px solid #ddd;"><strong>Arrive</strong></td>
-                    <td style="padding:8px;border:1px solid #ddd;">${new Date(check_in).toLocaleDateString()}</td>
+                    <td style="padding:8px;border:1px solid #ddd;">${new Date(check_in).toLocaleDateString('en-GB')}</td>
                   </tr>
                   <tr>
                     <td style="padding:8px;border:1px solid #ddd;"><strong>Depart</strong></td>
-                    <td style="padding:8px;border:1px solid #ddd;">${new Date(check_out).toLocaleDateString()}</td>
+                    <td style="padding:8px;border:1px solid #ddd;">${new Date(check_out).toLocaleDateString('en-GB')}</td>
                   </tr>
                 </table>
 
@@ -150,7 +150,7 @@ Further details are available in the information folder in the house.
                 <p>
                   Thank you for your interest in staying at <strong>Cornerstones Crantock</strong>.
                   Unfortunately, your recent booking request for
-                  <strong>${new Date(check_in).toLocaleDateString()} – ${new Date(check_out).toLocaleDateString()}</strong>
+                  <strong>${new Date(check_in).toLocaleDateString('en-GB')} – ${new Date(check_out).toLocaleDateString('en-GB')}</strong>
                   was <span style="color:#c00;font-weight:bold;">not approved</span>.
                 </p>
 
