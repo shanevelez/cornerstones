@@ -91,6 +91,11 @@ function SubmitRecommendation({ isVisible }) {
         isVisible ? "max-h-[1500px] opacity-100" : "max-h-0 opacity-0"
       } overflow-hidden`}
     >
+      {loading && (
+  <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+    <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
+  </div>
+)}
       <form
         onSubmit={handleSubmit}
         className="bg-white shadow-md rounded-lg p-6 space-y-4"
