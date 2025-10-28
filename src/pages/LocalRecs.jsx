@@ -13,6 +13,41 @@ function LocalRecs() {
 
   const categories = ["All", "Dining", "Nature", "Activities", "Shops", "Hidden Gems"];
 
+  // --- NEW: linkify helper (URLs -> <a>), preserves newlines and can stop propagation
+  const urlRegex = /(https?:\/\/[^\s)]+|www\.[^\s)]+)/gi;
+  const linkifyText = (text, stopBubble = false) => {
+    if (!text) return null;
+    const out = [];
+    let last = 0;
+    const pushText = (t) => {
+      const parts = t.split("\n");
+      parts.forEach((p, i) => {
+        if (p) out.push(<span key={`t${out.length}`}>{p}</span>);
+        if (i < parts.length - 1) out.push(<br key={`b${out.length}`} />);
+      });
+    };
+    text.replace(urlRegex, (m, _g1, offset) => {
+      if (offset > last) pushText(text.slice(last, offset));
+      const href = m.startsWith("http") ? m : `https://${m}`;
+      out.push(
+        <a
+          key={`l${out.length}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-700 hover:underline"
+          onClick={stopBubble ? (e) => e.stopPropagation() : undefined}
+        >
+          {m}
+        </a>
+      );
+      last = offset + m.length;
+      return m;
+    });
+    if (last < text.length) pushText(text.slice(last));
+    return out;
+  };
+
   // fallback image sets per category
   const fallbackImages = {
     Dining: ["/images/Dining1.jpg", "/images/Dining2.jpg", "/images/Dining3.jpg"],
@@ -137,7 +172,7 @@ function LocalRecs() {
                   </p>
                 )}
                 <p className="text-gray-700 text-sm line-clamp-3 whitespace-pre-line">
-                  {rec.description}
+                  {linkifyText(rec.description, true)}
                 </p>
                 {rec.tags?.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -209,7 +244,7 @@ function LocalRecs() {
               )}
 
               <p className="text-gray-700 whitespace-pre-line mb-4">
-                {selected.description}
+                {linkifyText(selected.description)}
               </p>
 
               {selected.photos?.length > 1 && (
