@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from "../supabaseClient"; // ✅ put this BACK
 import imageCompression from "browser-image-compression";
 
 const categoryOptions = [
@@ -38,60 +39,64 @@ function SubmitRecommendation({ isVisible }) {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setMessage("");
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
 
-  try {
-    const uploadedUrls = [];
+    try {
+      const uploadedUrls = [];
 
-    // compress + upload to Supabase storage first
-    if (files.length > 0) {
-      for (const file of files) {
-        const compressed = await imageCompression(file, {
-          maxWidthOrHeight: 1920,
-          maxSizeMB: 0.5,
-        });
+      // ✅ compress + upload to Supabase
+      if (files.length > 0) {
+        for (const file of files) {
+          const compressed = await imageCompression(file, {
+            maxWidthOrHeight: 1920,
+            maxSizeMB: 0.5,
+          });
 
-        const filePath = `uploads/${Date.now()}-${file.name}`;
-        const { data, error } = await supabase.storage
-          .from("recommendations")
-          .upload(filePath, compressed);
+          const filePath = `uploads/${Date.now()}-${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from("recommendations")
+            .upload(filePath, compressed);
 
-        if (error) throw error;
+          if (uploadError) throw uploadError;
 
-        const { data: publicUrlData } = supabase.storage
-          .from("recommendations")
-          .getPublicUrl(filePath);
+          const { data: publicUrlData } = supabase.storage
+            .from("recommendations")
+            .getPublicUrl(filePath);
 
-        uploadedUrls.push(publicUrlData.publicUrl);
+          uploadedUrls.push(publicUrlData.publicUrl);
+        }
       }
+
+      // ✅ send JSON body to API
+      const res = await fetch("/api/recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          address: form.address,
+          description: form.description,
+          category,
+          tags,
+          photos: uploadedUrls,
+        }),
+      });
+
+      if (!res.ok) throw new Error(`API ${res.status}`);
+
+      setMessage("Recommendation submitted! Awaiting approval.");
+      setForm({ name: "", address: "", description: "" });
+      setFiles([]);
+      setTags([]);
+      setCategory("General");
+    } catch (err) {
+      console.error("Submit error:", err);
+      setMessage(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    // ✅ JSON POST
-    const res = await fetch("/api/recommendations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: form.name,
-        address: form.address,
-        description: form.description,
-        category,
-        tags,
-        photos: uploadedUrls,
-      }),
-    });
-
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    setMessage("Recommendation submitted! Awaiting approval.");
-  } catch (err) {
-    console.error("Submit error:", err);
-    setMessage(err.message);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   return (
     <div
