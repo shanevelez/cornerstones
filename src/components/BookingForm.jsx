@@ -38,15 +38,15 @@ function BookingForm() {
   const [success, setSuccess] = useState("")
   const detailsRef = useRef(null)
 
-  const [formData, setFormData] = useState({
-    guest_name: "",
-    guest_email: "",
-    adults: 0,
-    grandchildren_over21: 0,
-    children_16plus: 0,
-    students: 0,
-    family_member: false, // boolean
-  })
+const [formData, setFormData] = useState({
+  guest_name: "",
+  guest_email: "",
+  adults: "",
+  grandchildren_over21: "",
+  children_16plus: "",
+  students: "",
+  family_member: false,
+});
 
   
 const [bookings, setBookings] = useState([]);
@@ -135,16 +135,24 @@ useEffect(() => {
 
   const isInvalid = Boolean(error)
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target
-    setFormData((prev) => {
-      if (type === "checkbox") return { ...prev, [name]: checked }
-      if (["adults", "grandchildren_over21", "children_16plus", "students"].includes(name)) {
-        return { ...prev, [name]: value === "" ? 0 : Number(value) }
+const handleChange = (e) => {
+  const { name, value, type, checked } = e.target;
+
+  setFormData((prev) => {
+    if (type === "checkbox") return { ...prev, [name]: checked };
+
+    if (["adults", "grandchildren_over21", "children_16plus", "students"].includes(name)) {
+      // Allow empty string or valid non-negative number
+      if (value === "" || /^\d*$/.test(value)) {
+        return { ...prev, [name]: value };
       }
-      return { ...prev, [name]: value }
-    })
-  }
+      return prev; // ignore invalid chars
+    }
+
+    return { ...prev, [name]: value };
+  });
+};
+
 
   const handleRequestBooking = () => {
     setShowDetails(true)
@@ -159,11 +167,15 @@ useEffect(() => {
     setSuccess("")
     setError("")
     try {
-      const payload = {
-        check_in: format(range.from, "yyyy-MM-dd"),
-        check_out: format(range.to, "yyyy-MM-dd"),
-        ...formData,
-      }
+const payload = {
+  check_in: format(range.from, "yyyy-MM-dd"),
+  check_out: format(range.to, "yyyy-MM-dd"),
+  ...formData,
+  adults: Number(formData.adults || 0),
+  grandchildren_over21: Number(formData.grandchildren_over21 || 0),
+  children_16plus: Number(formData.children_16plus || 0),
+  students: Number(formData.students || 0),
+};
 
       const res = await fetch(`${API_BASE}/bookings`, {
         method: "POST",
@@ -338,11 +350,13 @@ useEffect(() => {
             <div>
               <label className="block font-sans text-sm mb-1">Number of Grandchildren Over 21</label>
               <input
-                type="number"
-                name="grandchildren_over21"
-                min="0"
-                value={formData.grandchildren_over21}
-                onChange={handleChange}
+  type="number"
+  name="adults"
+  min="0"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={formData.adults}
+  onChange={handleChange}
                 className="w-full border rounded-md px-4 py-2"
               />
             </div>
@@ -350,23 +364,27 @@ useEffect(() => {
             <div>
               <label className="block font-sans text-sm mb-1">Number of Children aged 16+</label>
               <input
-                type="number"
-                name="children_16plus"
-                min="0"
-                value={formData.children_16plus}
-                onChange={handleChange}
+  type="number"
+  name="adults"
+  min="0"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={formData.adults}
+  onChange={handleChange}
                 className="w-full border rounded-md px-4 py-2"
               />
             </div>
 
             <div>
               <label className="block font-sans text-sm mb-1">Number of Students</label>
-              <input
-                type="number"
-                name="students"
-                min="0"
-                value={formData.students}
-                onChange={handleChange}
+             <input
+  type="number"
+  name="adults"
+  min="0"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={formData.adults}
+  onChange={handleChange}
                 className="w-full border rounded-md px-4 py-2"
               />
             </div>
@@ -375,11 +393,14 @@ useEffect(() => {
             <div>
               <label className="block font-sans text-sm mb-1">Are you a family member?</label>
               <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="family_member"
-                  checked={formData.family_member}
-                  onChange={handleChange}
+               <input
+  type="number"
+  name="adults"
+  min="0"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={formData.adults}
+  onChange={handleChange}
                 />
                 Family Member
               </label>
