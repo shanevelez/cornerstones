@@ -104,7 +104,7 @@ function SubmitRecommendation({ isVisible }) {
             onChange={handleChange}
             required
             className="border w-full p-2 rounded-md"
-            placeholder="Your full name"
+            placeholder="Your name"
           />
         </div>
 

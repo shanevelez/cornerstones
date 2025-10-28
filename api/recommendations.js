@@ -1,7 +1,7 @@
 import { IncomingForm } from "formidable";
 import { createClient } from "@supabase/supabase-js";
 import { Pool } from "pg";
-import fs from "fs";
+import fs from "fs/promises"; // ✅ use promise API to avoid buffer reuse
 
 export const config = { api: { bodyParser: false } };
 
@@ -26,19 +26,16 @@ export default async function handler(req, res) {
       }
 
       try {
-        // Flatten single-value fields
-        const normalize = (v) =>
-          Array.isArray(v) ? v[0] : v ?? null;
+        const normalize = (v) => (Array.isArray(v) ? v[0] : v ?? null);
 
         const name = normalize(fields.name);
         const address = normalize(fields.address);
         const description = normalize(fields.description);
         const category = normalize(fields.category);
-        const submitted_by = normalize(fields.submitted_by); // 👈 NEW
+        const submitted_by = normalize(fields.submitted_by);
         const tags = fields.tags ? JSON.parse(normalize(fields.tags)) : [];
-        const uploadedUrls = [];
 
-        // Handle uploads
+        const uploadedUrls = [];
         const fileList = Array.isArray(files.photos)
           ? files.photos
           : files.photos
@@ -46,23 +43,30 @@ export default async function handler(req, res) {
           : [];
 
         for (const file of fileList) {
-          const fileBuffer = fs.readFileSync(file.filepath);
-          const filePath = `uploads/${Date.now()}-${file.originalFilename}`;
+          try {
+            // ✅ create an isolated buffer each time
+            const fileBuffer = await fs.readFile(file.filepath);
 
-          const { error: uploadError } = await supabase.storage
-            .from("recommendations")
-            .upload(filePath, fileBuffer, { contentType: file.mimetype });
+            const filePath = `uploads/${Date.now()}-${Math.random()
+              .toString(36)
+              .substring(2, 8)}-${file.originalFilename}`;
 
-          if (uploadError) throw uploadError;
+            const { error: uploadError } = await supabase.storage
+              .from("recommendations")
+              .upload(filePath, fileBuffer, { contentType: file.mimetype });
 
-          const { data: publicUrlData } = supabase.storage
-            .from("recommendations")
-            .getPublicUrl(filePath);
+            if (uploadError) throw uploadError;
 
-          uploadedUrls.push(publicUrlData.publicUrl);
+            const { data: publicUrlData } = supabase.storage
+              .from("recommendations")
+              .getPublicUrl(filePath);
+
+            uploadedUrls.push(publicUrlData.publicUrl);
+          } catch (uploadErr) {
+            console.error("Upload failed for file:", file.originalFilename, uploadErr);
+          }
         }
 
-        // Insert into DB
         const query = `
           INSERT INTO recommendations 
           (name, address, description, category, tags, photos, submitted_by, status)
@@ -84,7 +88,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, recommendation: rows[0] });
       } catch (e) {
         console.error("Insert error:", e);
-        res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: e.message });
       }
     });
   } else if (req.method === "GET") {
@@ -92,9 +96,9 @@ export default async function handler(req, res) {
       const { rows } = await pool.query(
         "SELECT * FROM recommendations WHERE status = 'approved' ORDER BY created_at DESC;"
       );
-      res.status(200).json(rows);
+      return res.status(200).json(rows);
     } catch (e) {
-      res.status(500).json({ error: "Failed to load recommendations" });
+      return res.status(500).json({ error: "Failed to load recommendations" });
     }
   } else {
     res.setHeader("Allow", ["GET", "POST"]);
