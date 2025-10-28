@@ -115,21 +115,40 @@ const [actionLoading, setActionLoading] = useState(false);
       <h3 className="text-2xl font-heading text-primary mb-4">Bookings</h3>
 
       {/* Filter tabs */}
-      <div className="flex gap-3 mb-6">
-        {['pending', 'approved', 'rejected', 'cancelled'].map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`px-4 py-2 rounded-md border ${
-              filter === s
-                ? 'bg-primary text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            {s.charAt(0).toUpperCase() + s.slice(1)}
-          </button>
-        ))}
-      </div>
+      {/* Filter controls */}
+<div className="mb-6">
+  {/* Desktop: buttons */}
+  <div className="hidden sm:flex gap-3">
+    {['pending', 'approved', 'rejected', 'cancelled'].map((s) => (
+      <button
+        key={s}
+        onClick={() => setFilter(s)}
+        className={`px-4 py-2 rounded-md border ${
+          filter === s
+            ? 'bg-primary text-white'
+            : 'bg-white text-gray-700 hover:bg-gray-100'
+        }`}
+      >
+        {s.charAt(0).toUpperCase() + s.slice(1)}
+      </button>
+    ))}
+  </div>
+
+  {/* Mobile: dropdown */}
+  <div className="sm:hidden">
+    <select
+      value={filter}
+      onChange={(e) => setFilter(e.target.value)}
+      className="w-full border rounded-md p-2 bg-white text-gray-700"
+    >
+      {['pending', 'approved', 'rejected', 'cancelled'].map((s) => (
+        <option key={s} value={s}>
+          {s.charAt(0).toUpperCase() + s.slice(1)}
+        </option>
+      ))}
+    </select>
+  </div>
+</div>
 
       {/* Table */}
       {loading ? (
