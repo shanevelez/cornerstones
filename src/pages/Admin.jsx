@@ -73,6 +73,7 @@ function Admin() {
   function AdminRecommendations() {
   const [recs, setRecs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null); // 👈 for modal
 
   useEffect(() => {
     const fetchPending = async () => {
@@ -96,6 +97,7 @@ function Admin() {
       });
       if (res.ok) {
         setRecs((prev) => prev.filter((r) => r.id !== id));
+        setSelected(null); // close modal on approval/reject
       }
     } catch (err) {
       console.error("Action failed:", err);
@@ -107,43 +109,105 @@ function Admin() {
     return <p className="text-gray-600">No pending recommendations.</p>;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left border border-gray-200">
-        <thead className="bg-gray-100 text-gray-700">
-          <tr>
-            <th className="px-4 py-2 border-b">Name</th>
-            <th className="px-4 py-2 border-b">Category</th>
-            <th className="px-4 py-2 border-b">Submitted By</th>
-            <th className="px-4 py-2 border-b text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {recs.map((r) => (
-            <tr key={r.id}>
-              <td className="px-4 py-2 border-b">{r.name}</td>
-              <td className="px-4 py-2 border-b">{r.category}</td>
-              <td className="px-4 py-2 border-b">{r.submitted_by}</td>
-              <td className="px-4 py-2 border-b text-center">
-                <button
-                  onClick={() => handleAction(r.id, "approved")}
-                  className="bg-green-600 text-white px-3 py-1 rounded mr-2 hover:bg-green-700"
-                >
-                  Approve
-                </button>
-                <button
-                  onClick={() => handleAction(r.id, "rejected")}
-                  className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
-                >
-                  Reject
-                </button>
-              </td>
+    <div className="relative">
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-left border border-gray-200">
+          <thead className="bg-gray-100 text-gray-700">
+            <tr>
+              <th className="px-4 py-2 border-b">Name</th>
+              <th className="px-4 py-2 border-b">Category</th>
+              <th className="px-4 py-2 border-b">Submitted By</th>
+              <th className="px-4 py-2 border-b text-center">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {recs.map((r) => (
+              <tr
+                key={r.id}
+                className="cursor-pointer hover:bg-gray-50"
+                onClick={() => setSelected(r)} // 👈 open modal
+              >
+                <td className="px-4 py-2 border-b">{r.name}</td>
+                <td className="px-4 py-2 border-b">{r.category}</td>
+                <td className="px-4 py-2 border-b">{r.submitted_by}</td>
+                <td className="px-4 py-2 border-b text-center text-sm text-gray-500">
+                  Click for details
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal */}
+      {selected && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full relative border-t-4 border-primary">
+            <button
+              onClick={() => setSelected(null)}
+              className="absolute top-2 right-3 text-gray-500 hover:text-gray-700 text-2xl"
+            >
+              ×
+            </button>
+
+            <h3 className="text-2xl font-heading text-primary mb-3">
+              {selected.name}
+            </h3>
+            <p className="text-gray-700 mb-2">
+              <strong>Category:</strong> {selected.category}
+            </p>
+            <p className="text-gray-700 mb-2">
+              <strong>Address:</strong> {selected.address}
+            </p>
+            <p className="text-gray-700 mb-4">{selected.description}</p>
+            {selected.tags?.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {selected.tags.map((t) => (
+                  <span
+                    key={t}
+                    className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-sm"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {selected.photos?.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {selected.photos.map((url, i) => (
+                  <img
+                    key={i}
+                    src={url}
+                    alt={`Photo ${i + 1}`}
+                    className="w-full h-40 object-cover rounded-md border"
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => handleAction(selected.id, "rejected")}
+                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+              >
+                Reject
+              </button>
+              <button
+                onClick={() => handleAction(selected.id, "approved")}
+                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+              >
+                Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
 
   // ---- UI ----
