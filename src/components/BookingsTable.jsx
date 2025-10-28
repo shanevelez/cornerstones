@@ -36,13 +36,20 @@ function BookingsTable({ deepLinkId, userRole }) {
     fetchBookings();
   }, [filter]);
 
-  // --- Deep-link open
-  useEffect(() => {
-    if (deepLinkId && bookings.length > 0) {
-      const match = bookings.find((b) => b.id === Number(deepLinkId));
-      if (match) setSelected(match);
+// --- Deep-link open
+useEffect(() => {
+  if (deepLinkId && bookings.length > 0) {
+    const match = bookings.find((b) => b.id === Number(deepLinkId));
+    if (match) {
+      setSelected(match);
+
+      // consume the deep link so it doesn't reopen later
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.delete('booking');
+      window.history.replaceState({}, '', newUrl);
     }
-  }, [deepLinkId, bookings]);
+  }
+}, [deepLinkId, bookings]);
 
   // --- Load cancellation reason if selected booking is cancelled
   useEffect(() => {
