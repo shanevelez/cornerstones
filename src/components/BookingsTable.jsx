@@ -7,6 +7,16 @@ function BookingsTable({ deepLinkId, userRole }) {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  // Get current Supabase user for approvals logging
+  useEffect(() => {
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) setCurrentUserId(data.user.id);
+    };
+    getUser();
+  }, []);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -21,7 +31,6 @@ function BookingsTable({ deepLinkId, userRole }) {
       else setBookings(data);
       setLoading(false);
     };
-
     fetchBookings();
   }, [filter]);
 
@@ -48,6 +57,38 @@ function BookingsTable({ deepLinkId, userRole }) {
     };
     loadReason();
   }, [selected]);
+
+  const handleApproval = async (action) => {
+    try {
+      if (!currentUserId) {
+        alert('User ID missing — please log in again.');
+        return;
+      }
+      const comment = document.getElementById('comment')?.value || '';
+      const res = await fetch('/api/approvals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          booking_id: selected.id,
+          user_id: currentUserId,
+          action,
+          comment,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        console.error('Approval failed:', err);
+        alert(`Error: ${err.error || 'Failed to approve booking'}`);
+        return;
+      }
+
+      setSelected(null);
+    } catch (err) {
+      console.error('Network error:', err);
+      alert('Network error while submitting approval.');
+    }
+  };
 
   return (
     <section className="mt-8">
@@ -122,66 +163,14 @@ function BookingsTable({ deepLinkId, userRole }) {
             </div>
 
             <div className="p-6 space-y-3 font-sans text-gray-800">
-              <div className="flex flex-col sm:flex-row sm:justify-between">
-                <p>
-                  <span className="font-semibold">Guest:</span> {selected.guest_name}
-                </p>
-                <p>
-                  <span className="font-semibold">Email:</span>{' '}
-                  <a
-                    href={`mailto:${selected.guest_email}`}
-                    className="text-blue-700 hover:text-blue-800 hover:underline transition"
-                  >
-                    {selected.guest_email}
-                  </a>
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:justify-between">
-                <p>
-                  <span className="font-semibold">Check-in:</span>{' '}
-                  {new Date(selected.check_in).toLocaleDateString('en-GB')}
-                </p>
-                <p>
-                  <span className="font-semibold">Check-out:</span>{' '}
-                  {new Date(selected.check_out).toLocaleDateString('en-GB')}
-                </p>
-              </div>
-
-              <div className="border-t pt-3 mt-3">
-                <p><span className="font-semibold">Adults:</span> {selected.adults}</p>
-                <p><span className="font-semibold">Grandchildren over 21:</span> {selected.grandchildren_over21}</p>
-                <p><span className="font-semibold">Children 16 +:</span> {selected.children_16plus}</p>
-                <p><span className="font-semibold">Students:</span> {selected.students}</p>
-                <p><span className="font-semibold">Family member:</span> {selected.family_member ? 'Yes' : 'No'}</p>
-              </div>
-
-              <div className="border-t pt-3 mt-3 flex justify-between items-center">
-                <p className="font-semibold">Status:</p>
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${
-                    selected.status === 'approved'
-                      ? 'bg-green-100 text-green-700'
-                      : selected.status === 'rejected'
-                      ? 'bg-red-100 text-red-700'
-                      : selected.status === 'cancelled'
-                      ? 'bg-gray-200 text-gray-800'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}
-                >
-                  {selected.status}
-                </span>
-              </div>
-
-              {selected.status === 'cancelled' && (
-                <div className="mt-4 border-t pt-3">
-                  <p className="font-semibold text-red-700">Cancellation Reason:</p>
-                  <p className="bg-gray-50 border rounded-md p-2">{cancelReason}</p>
-                </div>
-              )}
+              <p><span className="font-semibold">Guest:</span> {selected.guest_name}</p>
+              <p><span className="font-semibold">Email:</span> {selected.guest_email}</p>
+              <p><span className="font-semibold">Check-in:</span> {new Date(selected.check_in).toLocaleDateString('en-GB')}</p>
+              <p><span className="font-semibold">Check-out:</span> {new Date(selected.check_out).toLocaleDateString('en-GB')}</p>
+              <p><span className="font-semibold">Adults:</span> {selected.adults}</p>
 
               {selected.status === 'pending' && (
-                <div className="mt-6 space-y-3 border-t pt-4">
+                <div className="mt-6 border-t pt-4">
                   <label className="block font-semibold text-gray-700">
                     Comments (optional)
                   </label>
@@ -203,48 +192,13 @@ function BookingsTable({ deepLinkId, userRole }) {
                     {['Admin', 'Approver'].includes(userRole) && (
                       <>
                         <button
-                          onClick={async () => {
-                            try {
-                              await fetch('/api/approvals', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  booking_id: selected.id,
-                                  user_id: selected.user_id,
-                                  action: 'rejected',
-                                  comment:
-                                    document.getElementById('comment')?.value || '',
-                                }),
-                              });
-                              setSelected(null);
-                            } catch (err) {
-                              console.error('Reject failed:', err);
-                            }
-                          }}
+                          onClick={() => handleApproval('rejected')}
                           className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
                         >
                           Reject
                         </button>
-
                         <button
-                          onClick={async () => {
-                            try {
-                              await fetch('/api/approvals', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  booking_id: selected.id,
-                                  user_id: selected.user_id,
-                                  action: 'approved',
-                                  comment:
-                                    document.getElementById('comment')?.value || '',
-                                }),
-                              });
-                              setSelected(null);
-                            } catch (err) {
-                              console.error('Approve failed:', err);
-                            }
-                          }}
+                          onClick={() => handleApproval('approved')}
                           className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
                         >
                           Approve
