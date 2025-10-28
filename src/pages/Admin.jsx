@@ -73,7 +73,8 @@ function Admin() {
   function AdminRecommendations() {
   const [recs, setRecs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null); // 👈 for modal
+  const [selected, setSelected] = useState(null);
+  const [edit, setEdit] = useState(null);
 
   useEffect(() => {
     const fetchPending = async () => {
@@ -97,10 +98,31 @@ function Admin() {
       });
       if (res.ok) {
         setRecs((prev) => prev.filter((r) => r.id !== id));
-        setSelected(null); // close modal on approval/reject
+        setSelected(null);
+        setEdit(null);
       }
     } catch (err) {
       console.error("Action failed:", err);
+    }
+  };
+
+  const saveEdits = async (id, fields) => {
+    try {
+      const res = await fetch("/api/update-recommendation", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, fields }),
+      });
+      if (res.ok) {
+        const { recommendation } = await res.json();
+        setRecs((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, ...recommendation } : r))
+        );
+        setSelected(recommendation);
+        setEdit(recommendation);
+      }
+    } catch (err) {
+      console.error("Save edits failed:", err);
     }
   };
 
@@ -126,7 +148,10 @@ function Admin() {
               <tr
                 key={r.id}
                 className="cursor-pointer hover:bg-gray-50"
-                onClick={() => setSelected(r)} // 👈 open modal
+                onClick={() => {
+                  setSelected(r);
+                  setEdit({ ...r });
+                }}
               >
                 <td className="px-4 py-2 border-b">{r.name}</td>
                 <td className="px-4 py-2 border-b">{r.category}</td>
@@ -143,27 +168,58 @@ function Admin() {
       {/* Modal */}
       {selected && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full relative border-t-4 border-primary">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full relative border-t-4 border-primary overflow-y-auto max-h-[90vh]">
             <button
-              onClick={() => setSelected(null)}
+              onClick={() => {
+                setSelected(null);
+                setEdit(null);
+              }}
               className="absolute top-2 right-3 text-gray-500 hover:text-gray-700 text-2xl"
             >
               ×
             </button>
 
-            <h3 className="text-2xl font-heading text-primary mb-3">
-              {selected.name}
+            <h3 className="text-2xl font-heading text-primary mb-1">
+              Edit Recommendation
             </h3>
-            <p className="text-gray-700 mb-2">
-              <strong>Category:</strong> {selected.category}
+            <p className="text-sm text-gray-500 mb-4">
+              Submitted by {edit.submitted_by}
             </p>
-            <p className="text-gray-700 mb-2">
-              <strong>Address:</strong> {selected.address}
-            </p>
-            <p className="text-gray-700 mb-4">{selected.description}</p>
-            {selected.tags?.length > 0 && (
+
+            <label className="block font-semibold mb-1">Name</label>
+            <input
+              value={edit.name}
+              onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+              className="border w-full p-2 rounded mb-3"
+            />
+
+            <label className="block font-semibold mb-1">Category</label>
+            <input
+              value={edit.category}
+              onChange={(e) => setEdit({ ...edit, category: e.target.value })}
+              className="border w-full p-2 rounded mb-3"
+            />
+
+            <label className="block font-semibold mb-1">Address</label>
+            <input
+              value={edit.address}
+              onChange={(e) => setEdit({ ...edit, address: e.target.value })}
+              className="border w-full p-2 rounded mb-3"
+            />
+
+            <label className="block font-semibold mb-1">Description</label>
+            <textarea
+              value={edit.description}
+              onChange={(e) =>
+                setEdit({ ...edit, description: e.target.value })
+              }
+              rows={6}
+              className="border w-full p-2 rounded mb-4 whitespace-pre-line"
+            />
+
+            {edit.tags?.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-2">
-                {selected.tags.map((t) => (
+                {edit.tags.map((t) => (
                   <span
                     key={t}
                     className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-sm"
@@ -174,32 +230,52 @@ function Admin() {
               </div>
             )}
 
-            {selected.photos?.length > 0 && (
+            {edit.photos?.length > 0 && (
               <div className="grid grid-cols-2 gap-3 mb-6">
-                {selected.photos.map((url, i) => (
-                  <img
-                    key={i}
-                    src={url}
-                    alt={`Photo ${i + 1}`}
-                    className="w-full h-40 object-cover rounded-md border"
-                  />
+                {edit.photos.map((url, i) => (
+                  <div key={i} className="relative">
+                    <img
+                      src={url}
+                      alt={`Photo ${i + 1}`}
+                      className="w-full h-40 object-cover rounded-md border"
+                    />
+                    <button
+                      onClick={() =>
+                        setEdit({
+                          ...edit,
+                          photos: edit.photos.filter((_, idx) => idx !== i),
+                        })
+                      }
+                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full px-2 text-sm"
+                    >
+                      ×
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-between items-center">
               <button
-                onClick={() => handleAction(selected.id, "rejected")}
-                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                onClick={() => saveEdits(edit.id, edit)}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
               >
-                Reject
+                Save Changes
               </button>
-              <button
-                onClick={() => handleAction(selected.id, "approved")}
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-              >
-                Approve
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleAction(edit.id, "rejected")}
+                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={() => handleAction(edit.id, "approved")}
+                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                >
+                  Approve
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -207,6 +283,7 @@ function Admin() {
     </div>
   );
 }
+
 
 
 
