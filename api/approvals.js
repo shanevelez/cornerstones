@@ -48,19 +48,20 @@ export default async function handler(req, res) {
       await client.query('COMMIT');
 
       // 3️⃣ Trigger email notification
-      try {
-        await fetch(`${process.env.BASE_URL}/api/send-booking-status`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bookingId: booking_id, // <-- exact field name expected by send-booking-status.js
-            status: action,        // rename 'action' to 'status'
-            comment: comment || '',
-          }),
-        });
-      } catch (emailErr) {
-        console.error('Email notification failed:', emailErr);
-      }
+try {
+  await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/send-booking-status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      bookingId: booking_id,
+      status: action,
+      comment: comment || '',
+    }),
+  });
+} catch (emailErr) {
+  console.error('Email notification failed:', emailErr);
+}
+
 
       // 4️⃣ Respond
       res.status(200).json({
