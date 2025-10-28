@@ -141,17 +141,18 @@ const handleChange = (e) => {
   setFormData((prev) => {
     if (type === "checkbox") return { ...prev, [name]: checked };
 
+    // For numeric fields: only allow digits but keep as string
     if (["adults", "grandchildren_over21", "children_16plus", "students"].includes(name)) {
-      // Allow empty string or valid non-negative number
       if (value === "" || /^\d*$/.test(value)) {
         return { ...prev, [name]: value };
       }
-      return prev; // ignore invalid chars
+      return prev; // ignore invalid characters
     }
 
     return { ...prev, [name]: value };
   });
 };
+
 
 
   const handleRequestBooking = () => {
@@ -176,6 +177,7 @@ const payload = {
   children_16plus: Number(formData.children_16plus || 0),
   students: Number(formData.students || 0),
 };
+
 
       const res = await fetch(`${API_BASE}/bookings`, {
         method: "POST",
