@@ -38,52 +38,60 @@ function SubmitRecommendation({ isVisible }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage("");
+  e.preventDefault();
+  setLoading(true);
+  setMessage("");
 
-    try {
-      // --- compress images before sending ---
-      const compressedFiles = [];
+  try {
+    const uploadedUrls = [];
+
+    // compress + upload to Supabase storage first
+    if (files.length > 0) {
       for (const file of files) {
         const compressed = await imageCompression(file, {
-          maxWidthOrHeight: 1600,   // slightly smaller for better size
-          maxSizeMB: 0.25,          // target ~250 KB each
-          useWebWorker: true,
+          maxWidthOrHeight: 1920,
+          maxSizeMB: 0.5,
         });
-        compressedFiles.push(compressed);
+
+        const filePath = `uploads/${Date.now()}-${file.name}`;
+        const { data, error } = await supabase.storage
+          .from("recommendations")
+          .upload(filePath, compressed);
+
+        if (error) throw error;
+
+        const { data: publicUrlData } = supabase.storage
+          .from("recommendations")
+          .getPublicUrl(filePath);
+
+        uploadedUrls.push(publicUrlData.publicUrl);
       }
-
-      const formData = new FormData();
-      formData.append("name", form.name);
-      formData.append("address", form.address);
-      formData.append("description", form.description);
-      formData.append("category", category);
-      formData.append("tags", JSON.stringify(tags));
-      compressedFiles.forEach((f) => formData.append("photos", f));
-
-      const res = await fetch("/api/recommendations", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`API error ${res.status}: ${text}`);
-      }
-
-      setMessage("Recommendation submitted! Awaiting approval.");
-      setForm({ name: "", address: "", description: "" });
-      setFiles([]);
-      setTags([]);
-      setCategory("General");
-    } catch (err) {
-      console.error("Submit error:", err);
-      setMessage(err.message || "Something went wrong.");
-    } finally {
-      setLoading(false);
     }
-  };
+
+    // ✅ JSON POST
+    const res = await fetch("/api/recommendations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.name,
+        address: form.address,
+        description: form.description,
+        category,
+        tags,
+        photos: uploadedUrls,
+      }),
+    });
+
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    setMessage("Recommendation submitted! Awaiting approval.");
+  } catch (err) {
+    console.error("Submit error:", err);
+    setMessage(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div
