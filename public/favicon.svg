@@ -1,7 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <circle cx="256" cy="256" r="256" fill="#f4b400"></circle>
-  <!-- stylised wave cut across -->
-  <path d="M0 320q80-40 160 0t160 0 192 0v192H0Z" fill="#1976d2" opacity="0.9"></path>
-  <!-- C monogram -->
+  <defs>
+    <!-- Reversed deep tropical gradient -->
+    <linearGradient id="sunGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e65100"></stop>
+      <stop offset="55%" stop-color="#ff7a00"></stop>
+      <stop offset="100%" stop-color="#ffb300"></stop>
+    </linearGradient>
+  </defs>
+
+  <!-- Gradient sun -->
+  <circle cx="256" cy="256" r="256" fill="url(#sunGrad)"></circle>
+
+  <!-- Deep blue sea -->
+  <path d="M0 320q80-40 160 0t160 0 192 0v192H0Z" fill="#0b3c7a" opacity="0.95"></path>
+
+  <!-- White C monogram -->
   <path d="M340 160a120 120 0 1 0 0 192" fill="none" stroke="#ffffff" stroke-width="60" stroke-linecap="round"></path>
 </svg>
