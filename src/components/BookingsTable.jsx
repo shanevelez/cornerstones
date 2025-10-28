@@ -61,12 +61,15 @@ function BookingsTable({ deepLinkId, userRole }) {
     };
     loadReason();
   }, [selected]);
+const [actionLoading, setActionLoading] = useState(false);
 
   // --- Handle approve/reject action
-  const handleApproval = async (action) => {
+ const handleApproval = async (action) => {
+    setActionLoading(true);
     try {
       if (!currentUserId) {
         alert('Missing approver ID — please log in again.');
+        setActionLoading(false);
         return;
       }
       const comment = document.getElementById('comment')?.value || '';
@@ -86,6 +89,7 @@ function BookingsTable({ deepLinkId, userRole }) {
         const err = await res.json();
         console.error('Approval failed:', err);
         alert(`Error: ${err.error || 'Failed to record approval.'}`);
+        setActionLoading(false);
         return;
       }
 
@@ -100,8 +104,11 @@ function BookingsTable({ deepLinkId, userRole }) {
     } catch (err) {
       console.error('Network error:', err);
       alert('Network error while submitting approval.');
+    } finally {
+      setActionLoading(false);
     }
   };
+
 
   return (
     <section className="mt-8">
@@ -167,6 +174,11 @@ function BookingsTable({ deepLinkId, userRole }) {
       {/* Modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          {actionLoading && (
+  <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
+  </div>
+)}
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-xl overflow-hidden border border-gray-200">
             {/* Header */}
             <div className="flex justify-between items-center bg-primary text-white px-6 py-4">
