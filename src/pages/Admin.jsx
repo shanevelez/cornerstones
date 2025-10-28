@@ -106,25 +106,34 @@ function Admin() {
     }
   };
 
-  const saveEdits = async (id, fields) => {
-    try {
-      const res = await fetch("/api/update-recommendation", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, fields }),
-      });
-      if (res.ok) {
-        const { recommendation } = await res.json();
-        setRecs((prev) =>
-          prev.map((r) => (r.id === id ? { ...r, ...recommendation } : r))
-        );
-        setSelected(recommendation);
-        setEdit(recommendation);
+const saveEdits = async (id, fields) => {
+  try {
+    const formData = new FormData();
+    formData.append("id", id);
+    Object.entries(fields).forEach(([key, val]) => {
+      if (Array.isArray(val)) {
+        formData.append(key, JSON.stringify(val));
+      } else {
+        formData.append(key, val ?? "");
       }
-    } catch (err) {
-      console.error("Save edits failed:", err);
-    }
-  };
+    });
+
+    const res = await fetch("/api/update-recommendation", {
+      method: "POST", // 👈 matches your backend
+      body: formData,
+    });
+
+    if (!res.ok) throw new Error("Failed to update");
+    const data = await res.json();
+
+    // optional: refresh table or close modal
+    setSelected(data.recommendation);
+    alert("Changes saved");
+  } catch (err) {
+    console.error("Save error:", err);
+  }
+};
+
 
   if (loading) return <p>Loading recommendations…</p>;
   if (recs.length === 0)
