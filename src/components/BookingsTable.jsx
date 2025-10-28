@@ -32,7 +32,6 @@ function BookingsTable({ deepLinkId, userRole }) {
     }
   }, [deepLinkId, bookings]);
 
-  // fetch cancellation reason if selected booking is cancelled
   useEffect(() => {
     const loadReason = async () => {
       if (selected?.status === 'cancelled') {
@@ -54,7 +53,6 @@ function BookingsTable({ deepLinkId, userRole }) {
     <section className="mt-8">
       <h3 className="text-2xl font-heading text-primary mb-4">Bookings</h3>
 
-      {/* Filter tabs */}
       <div className="flex gap-3 mb-6">
         {['pending', 'approved', 'rejected', 'cancelled'].map((s) => (
           <button
@@ -96,10 +94,10 @@ function BookingsTable({ deepLinkId, userRole }) {
                 >
                   <td className="px-4 py-2 border-b">{b.guest_name}</td>
                   <td className="px-4 py-2 border-b">
-                    {new Date(b.check_in).toLocaleDateString()}
+                    {new Date(b.check_in).toLocaleDateString('en-GB')}
                   </td>
                   <td className="px-4 py-2 border-b">
-                    {new Date(b.check_out).toLocaleDateString()}
+                    {new Date(b.check_out).toLocaleDateString('en-GB')}
                   </td>
                   <td className="px-4 py-2 border-b text-center">{b.adults}</td>
                   <td className="px-4 py-2 border-b capitalize">{b.status}</td>
@@ -110,11 +108,9 @@ function BookingsTable({ deepLinkId, userRole }) {
         </div>
       )}
 
-      {/* Modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-xl overflow-hidden border border-gray-200">
-            {/* Header */}
             <div className="flex justify-between items-center bg-primary text-white px-6 py-4">
               <h4 className="text-xl font-heading">Booking Details</h4>
               <button
@@ -125,7 +121,6 @@ function BookingsTable({ deepLinkId, userRole }) {
               </button>
             </div>
 
-            {/* Body */}
             <div className="p-6 space-y-3 font-sans text-gray-800">
               <div className="flex flex-col sm:flex-row sm:justify-between">
                 <p>
@@ -145,11 +140,11 @@ function BookingsTable({ deepLinkId, userRole }) {
               <div className="flex flex-col sm:flex-row sm:justify-between">
                 <p>
                   <span className="font-semibold">Check-in:</span>{' '}
-                  {new Date(selected.check_in).toLocaleDateString()}
+                  {new Date(selected.check_in).toLocaleDateString('en-GB')}
                 </p>
                 <p>
                   <span className="font-semibold">Check-out:</span>{' '}
-                  {new Date(selected.check_out).toLocaleDateString()}
+                  {new Date(selected.check_out).toLocaleDateString('en-GB')}
                 </p>
               </div>
 
@@ -178,7 +173,6 @@ function BookingsTable({ deepLinkId, userRole }) {
                 </span>
               </div>
 
-              {/* show cancellation reason if cancelled */}
               {selected.status === 'cancelled' && (
                 <div className="mt-4 border-t pt-3">
                   <p className="font-semibold text-red-700">Cancellation Reason:</p>
@@ -186,7 +180,6 @@ function BookingsTable({ deepLinkId, userRole }) {
                 </div>
               )}
 
-              {/* Existing approve/reject actions untouched */}
               {selected.status === 'pending' && (
                 <div className="mt-6 space-y-3 border-t pt-4">
                   <label className="block font-semibold text-gray-700">
@@ -200,58 +193,69 @@ function BookingsTable({ deepLinkId, userRole }) {
                   />
 
                   <div className="flex justify-end gap-3 pt-3">
-  <button
-    onClick={() => setSelected(null)}
-    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
-  >
-    Cancel
-  </button>
+                    <button
+                      onClick={() => setSelected(null)}
+                      className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
+                    >
+                      Cancel
+                    </button>
 
-  {['Admin', 'Approver'].includes(userRole) && (
-    <>
-      <button
-        onClick={async () => {
-          try {
-            await fetch('/api/approve-booking', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: selected.id, action: 'rejected' }),
-            });
-            setSelected(null);
-          } catch (err) {
-            console.error('Reject failed:', err);
-          }
-        }}
-        className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
-      >
-        Reject
-      </button>
+                    {['Admin', 'Approver'].includes(userRole) && (
+                      <>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await fetch('/api/approvals', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  booking_id: selected.id,
+                                  user_id: selected.user_id,
+                                  action: 'rejected',
+                                  comment:
+                                    document.getElementById('comment')?.value || '',
+                                }),
+                              });
+                              setSelected(null);
+                            } catch (err) {
+                              console.error('Reject failed:', err);
+                            }
+                          }}
+                          className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                        >
+                          Reject
+                        </button>
 
-      <button
-        onClick={async () => {
-          try {
-            await fetch('/api/approve-booking', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: selected.id, action: 'approved' }),
-            });
-            setSelected(null);
-          } catch (err) {
-            console.error('Approve failed:', err);
-          }
-        }}
-        className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
-      >
-        Approve
-      </button>
-    </>
-  )}
-</div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await fetch('/api/approvals', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  booking_id: selected.id,
+                                  user_id: selected.user_id,
+                                  action: 'approved',
+                                  comment:
+                                    document.getElementById('comment')?.value || '',
+                                }),
+                              });
+                              setSelected(null);
+                            } catch (err) {
+                              console.error('Approve failed:', err);
+                            }
+                          }}
+                          className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+                        >
+                          Approve
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Footer */}
             {selected.status !== 'pending' && (
               <div className="bg-gray-50 px-6 py-4 flex justify-end">
                 <button
