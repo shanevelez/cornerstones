@@ -181,7 +181,10 @@ const handleSubmit = async (e) => {
 
     if (!res.ok) throw new Error("Failed request");
     await res.json();
-
+setBookings((prev) => [
+  ...prev,
+  { from: range.from, to: range.to },
+]);
     // ✅ Success
     setSuccess("Booking request submitted successfully! You will receive an email when your booking is confirmed.");
 

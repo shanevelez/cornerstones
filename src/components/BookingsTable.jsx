@@ -87,12 +87,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
         return;
       }
       const comment = document.getElementById('comment')?.value || '';
-      console.log('APPROVAL PAYLOAD →', {
-  booking_id: selected.id,
-  user_id: currentUserId,
-  action,
-  comment,
-});
+      
 
       const res = await fetch('/api/approvals', {
         method: 'POST',
