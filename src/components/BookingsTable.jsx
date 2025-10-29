@@ -74,6 +74,18 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     };
     loadReason();
   }, [selected]);
+console.log('APPROVAL PAYLOAD →', {
+  booking_id: selected.id,
+  user_id: currentUserId,
+  action,
+  comment,
+});
+console.log('APPROVAL PAYLOAD →', {
+  booking_id: selected.id,
+  user_id: currentUserId,
+  action,
+  comment,
+});
 
   // --- Handle approve/reject action
   const handleApproval = async (action) => {

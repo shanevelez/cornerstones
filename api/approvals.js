@@ -13,6 +13,8 @@ export default async function handler(req, res) {
 
   try {
     const { booking_id, user_id, action, comment } = req.body;
+    console.log('SERVER RECEIVED →', { booking_id, user_id, action });
+
 
     if (!booking_id || !user_id || !action) {
       return res.status(400).json({ error: 'Missing required fields.' });
