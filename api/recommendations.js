@@ -1,7 +1,7 @@
 import { IncomingForm } from "formidable";
 import { createClient } from "@supabase/supabase-js";
 import { Pool } from "pg";
-import fs from "fs/promises"; // ✅ use promise API to avoid buffer reuse
+import fs from "fs/promises"; // âœ… use promise API to avoid buffer reuse
 
 export const config = { api: { bodyParser: false } };
 
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
 
         for (const file of fileList) {
           try {
-            // ✅ create an isolated buffer each time
+            // âœ… create an isolated buffer each time
             const fileBuffer = await fs.readFile(file.filepath);
 
             const filePath = `uploads/${Date.now()}-${Math.random()

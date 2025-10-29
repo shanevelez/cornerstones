@@ -1,4 +1,4 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
 const supabase = createClient(
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   try {
     const { name, category, submitted_by } = req.body;
 
-    // 1ï¸âƒ£ Fetch all admin users
+    // 1️⃣ Fetch all admin users
     const { data: admins, error } = await supabase
       .from("users")
       .select("email")
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: "No admin users found" });
     }
 
-    // 2ï¸âƒ£ Build the email content
+    // 2️⃣ Build the email content
     const subject = `New Local Recommendation: ${name}`;
     const html = `
       <div style="font-family: sans-serif; line-height: 1.6;">
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
       </div>
     `;
 
-    // 3ï¸âƒ£ Send emails to all admins (individually)
+    // 3️⃣ Send emails to all admins (individually)
     const sendPromises = admins.map((admin) =>
       resend.emails.send({
         from: "Cornerstones <booking@cornerstonescrantock.com>",
@@ -62,4 +62,3 @@ export default async function handler(req, res) {
     res.status(500).json({ error: err.message });
   }
 }
-

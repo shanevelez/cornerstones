@@ -1,4 +1,4 @@
-﻿import { Resend } from 'resend';
+import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   try {
     const { bookingId, guest_name, check_in, check_out } = req.body;
 
-    // 1ï¸âƒ£ get all Admin + Approver users
+    // 1️⃣ get all Admin + Approver users
     const { data: users, error: userError } = await supabase
       .from('users')
       .select('email, role')
@@ -26,21 +26,21 @@ export default async function handler(req, res) {
 
     const recipientEmails = users.map((u) => u.email);
 
-    // 2ï¸âƒ£ construct links
+    // 2️⃣ construct links
     const bookingLink = `https://cornerstonesbooking.vercel.app/admin?booking=${bookingId}`;
     const dashboardLink = `https://cornerstonesbooking.vercel.app/admin`;
 
-    // 3ï¸âƒ£ send email
+    // 3️⃣ send email
     await resend.emails.send({
       from: 'Cornerstones Booking <booking@cornerstonescrantock.com>',
       to: recipientEmails,
-      subject: `New Booking Pending Approval â€“ ${guest_name}`,
+      subject: `New Booking Pending Approval – ${guest_name}`,
       html: `
   <div style="font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f9f9f9;padding:32px;">
     <table style="max-width:580px;margin:auto;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #eee;">
       <tr>
         <td style="background:#e7b333;color:#0f2b4c;padding:20px 24px;font-size:20px;font-weight:bold;">
-          Cornerstones Booking â€“ New Request
+          Cornerstones Booking – New Request
         </td>
       </tr>
       <tr>
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
       </tr>
       <tr>
         <td style="background:#f2deac;padding:16px 24px;color:#0f2b4c;font-size:13px;text-align:center;">
-          Â© ${new Date().getFullYear()} Cornerstones Crantock Â· Automated Notification
+          © ${new Date().getFullYear()} Cornerstones Crantock · Automated Notification
         </td>
       </tr>
     </table>
@@ -87,4 +87,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Failed to send notifications', details: err.message });
   }
 }
-

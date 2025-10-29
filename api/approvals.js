@@ -13,7 +13,7 @@ export default async function handler(req, res) {
 
   try {
     const { booking_id, user_id, action, comment } = req.body;
-    console.log('SERVER RECEIVED →', { booking_id, user_id, action });
+    console.log('SERVER RECEIVED â†’', { booking_id, user_id, action });
 
 
     if (!booking_id || !user_id || !action) {
@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     try {
       await client.query('BEGIN');
 
-      // 1️⃣ Update booking status
+      // 1ï¸âƒ£ Update booking status
       const update = `
         UPDATE bookings
         SET status = $1
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
       const { rows: updated } = await client.query(update, [action, booking_id]);
       if (!updated.length) throw new Error('Booking not found.');
 
-      // 2️⃣ Insert into approvals log
+      // 2ï¸âƒ£ Insert into approvals log
       const insert = `
         INSERT INTO approvals (booking_id, user_id, action, comment)
         VALUES ($1, $2, $3, $4)
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
       await client.query('COMMIT');
 
-      // 3️⃣ Trigger email notification
+      // 3ï¸âƒ£ Trigger email notification
 try {
   await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/send-booking-status`, {
     method: 'POST',
@@ -65,7 +65,7 @@ try {
 }
 
 
-      // 4️⃣ Respond
+      // 4ï¸âƒ£ Respond
       res.status(200).json({
         success: true,
         booking: updated[0],

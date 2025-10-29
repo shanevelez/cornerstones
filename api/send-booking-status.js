@@ -1,4 +1,4 @@
-﻿import { Resend } from 'resend';
+import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing bookingId or status' });
     }
 
-    // ---- 1ï¸âƒ£ Fetch booking + guest details ----
+    // ---- 1️⃣ Fetch booking + guest details ----
     const { data: booking, error } = await supabase
       .from('bookings')
       .select('*')
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     const { guest_name, guest_email, check_in, check_out, id: booking_id, cancel_token } = booking;
 const currentYear = new Date().getFullYear();
 const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
-    // ---- 2ï¸âƒ£ Build email HTML based on status ----
+    // ---- 2️⃣ Build email HTML based on status ----
     let subject = '';
     let html = '';
 
@@ -48,7 +48,7 @@ const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
               <td style="padding:24px;color:#333;line-height:1.6;">
                 <p>Dear ${guest_name},</p>
                 <p>
-                  Weâ€™re delighted to confirm your stay at <strong>Cornerstones</strong>,
+                  We’re delighted to confirm your stay at <strong>Cornerstones</strong>,
                   1 Gustory Road, Crantock, Cornwall TR8 5RG.
                 </p>
 
@@ -69,11 +69,11 @@ const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
 
                 <h3 style="color:#0f2b4c;margin-top:24px;">Your stay</h3>
                 <ul style="margin-left:20px;">
-                  <li>Adults (21 +) â€“ Â£32 per person per night</li>
-                  <li>Grandchildren over 21 and in paid employment â€“ Â£25 per person per night</li>
-                  <li>Young people 16 + / students â€“ Â£12 per person per night</li>
-                  <li>Children under 16 â€“ No charge</li>
-                  <li>Cleaning charge â€“ Â£40 per booking</li>
+                  <li>Adults (21 +) – £32 per person per night</li>
+                  <li>Grandchildren over 21 and in paid employment – £25 per person per night</li>
+                  <li>Young people 16 + / students – £12 per person per night</li>
+                  <li>Children under 16 – No charge</li>
+                  <li>Cleaning charge – £40 per booking</li>
                 </ul>
 
                 <p style="margin-top:18px;">
@@ -95,9 +95,9 @@ const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
                 <h3 style="color:#0f2b4c;margin-top:28px;">During your stay</h3>
                 <ul style="margin-left:20px;">
                   <li>Bring your own towels (bedding provided).</li>
-                  <li>Bins collected early Monday â€” put out by 7 am at the bottom of the drive.</li>
+                  <li>Bins collected early Monday — put out by 7 am at the bottom of the drive.</li>
                   <li>See the folder in the house for local info and parking guidance.</li>
-                  <li>EV charging points â€“ Crantock Village Hall and Esso garage (Newquay Road).</li>
+                  <li>EV charging points – Crantock Village Hall and Esso garage (Newquay Road).</li>
                 </ul>
 <h3 style="color:#0f2b4c;margin-top:28px;">Parking</h3>
                 <p style="margin-top:24px;">              
@@ -112,7 +112,7 @@ Further details are available in the information folder in the house.
                 <p style="margin-top:30px;">We hope you have a wonderful holiday.</p>
                 <p style="margin-bottom:0;">Richard and Louise</p>
                 
-                <p style="font-size:14px;color:#555;">Cornerstones Bookings Â· 07717 132433 Â· millam@doctors.org.uk</p>
+                <p style="font-size:14px;color:#555;">Cornerstones Bookings · 07717 132433 · millam@doctors.org.uk</p>
                 <p style="margin-top:32px;">
   If you need to cancel your booking, please click below:<br>
  <a href="https://www.cornerstonescrantock.com/cancel/${cancel_token}"
@@ -122,13 +122,13 @@ Further details are available in the information folder in the house.
 </p>
 
 <p style="font-size:13px;color:#666;margin-top:8px;">
-  This link is unique to your booking â€” please do not share it.
+  This link is unique to your booking — please do not share it.
 </p>
               </td>
             </tr>
             <tr>
               <td style="background:#0f2b4c;color:#e7b333;text-align:center;font-size:13px;padding:14px;">
-                Â© ${new Date().getFullYear()} Cornerstones Crantock Â· Booking Confirmation
+                © ${new Date().getFullYear()} Cornerstones Crantock · Booking Confirmation
               </td>
             </tr>
           </table>
@@ -150,7 +150,7 @@ Further details are available in the information folder in the house.
                 <p>
                   Thank you for your interest in staying at <strong>Cornerstones Crantock</strong>.
                   Unfortunately, your recent booking request for
-                  <strong>${new Date(check_in).toLocaleDateString('en-GB')} â€“ ${new Date(check_out).toLocaleDateString('en-GB')}</strong>
+                  <strong>${new Date(check_in).toLocaleDateString('en-GB')} – ${new Date(check_out).toLocaleDateString('en-GB')}</strong>
                   was <span style="color:#c00;font-weight:bold;">not approved</span>.
                 </p>
 
@@ -160,14 +160,14 @@ Further details are available in the information folder in the house.
                     : ''
                 }
 
-                <p>Youâ€™re very welcome to check availability again at any time.</p>
+                <p>You’re very welcome to check availability again at any time.</p>
 
                 <p style="margin-top:32px;">With best wishes,<br>Cornerstones Family</p>
               </td>
             </tr>
             <tr>
               <td style="background:#f2deac;color:#0f2b4c;text-align:center;font-size:13px;padding:14px;">
-                Â© ${new Date().getFullYear()} Cornerstones Crantock Â· Booking Update
+                © ${new Date().getFullYear()} Cornerstones Crantock · Booking Update
               </td>
             </tr>
           </table>
@@ -177,7 +177,7 @@ Further details are available in the information folder in the house.
       return res.status(400).json({ error: 'Invalid status value' });
     }
 
-    // ---- 3ï¸âƒ£ Send via Resend ----
+    // ---- 3️⃣ Send via Resend ----
     await resend.emails.send({
       from: 'Cornerstones Booking <booking@cornerstonescrantock.com>',
       to: guest_email,
@@ -191,4 +191,3 @@ Further details are available in the information folder in the house.
     return res.status(500).json({ error: 'Failed to send booking email', details: err.message });
   }
 }
-

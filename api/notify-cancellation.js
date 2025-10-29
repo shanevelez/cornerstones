@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     const { bookingId, reason } = req.body;
     if (!bookingId) return res.status(400).json({ error: 'Missing bookingId' });
 
-    // ---- 1️⃣ fetch booking details ----
+    // ---- 1ï¸âƒ£ fetch booking details ----
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
       .select('*')
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    // ---- 2️⃣ get cancellation reason (from table if needed) ----
+    // ---- 2ï¸âƒ£ get cancellation reason (from table if needed) ----
     let cancellationReason = reason;
     if (!reason) {
       const { data: cancellation, error: cancelErr } = await supabase
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
       if (!cancelErr && cancellation) cancellationReason = cancellation.reason;
     }
 
-    // ---- 3️⃣ get admin & approver emails ----
+    // ---- 3ï¸âƒ£ get admin & approver emails ----
     const { data: approvers, error: roleError } = await supabase
       .from('users')
       .select('email, role')
@@ -52,13 +52,13 @@ export default async function handler(req, res) {
 
     const recipients = approvers?.map((u) => u.email) || [];
 
-    // ---- 4️⃣ format data ----
+    // ---- 4ï¸âƒ£ format data ----
     const checkIn = new Date(booking.check_in).toLocaleDateString('en-GB');
     const checkOut = new Date(booking.check_out).toLocaleDateString('en-GB');
     const year = new Date(booking.check_in).getFullYear();
     const bookingNumber = `${year}${String(booking.id).padStart(2, '0')}`;
 
-    // ---- 5️⃣ build HTML for admin notification ----
+    // ---- 5ï¸âƒ£ build HTML for admin notification ----
     const adminHtml = `
       <div style="font-family:Arial, sans-serif; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:8px; overflow:hidden">
         <div style="background-color:#0f2b4c; color:white; padding:16px 24px;">
@@ -100,7 +100,7 @@ export default async function handler(req, res) {
       </div>
     `;
 
-    // ---- 6️⃣ build guest confirmation HTML ----
+    // ---- 6ï¸âƒ£ build guest confirmation HTML ----
     const guestHtml = `
       <div style="font-family:Arial, sans-serif; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:8px; overflow:hidden">
         <div style="background-color:#0f2b4c; color:white; padding:16px 24px;">
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
             <strong>Your reason for cancellation:</strong><br/>
             <em>${cancellationReason}</em>
           </p>
-          <p style="margin-top:24px;">We’re sorry to miss you, but hope to welcome you another time.</p>
+          <p style="margin-top:24px;">Weâ€™re sorry to miss you, but hope to welcome you another time.</p>
           <div style="margin-top:24px; text-align:center;">
             <a href="https://www.cornerstonescrantock.com"
                style="background:#e7b333; color:#0f2b4c; padding:10px 20px; text-decoration:none; border-radius:4px; font-weight:bold;">
@@ -134,19 +134,19 @@ export default async function handler(req, res) {
       </div>
     `;
 
-    // ---- 7️⃣ send admin/approver notification ----
+    // ---- 7ï¸âƒ£ send admin/approver notification ----
     if (recipients.length > 0) {
       await resend.emails.send({
-        from: 'Cornerstones <bookings@cornerstonescrantock.com>',
+        from: 'Cornerstones <booking@cornerstonescrantock.com>',
         to: recipients,
-        subject: `Booking Cancelled – ${booking.guest_name} (${bookingNumber})`,
+        subject: `Booking Cancelled - ${booking.guest_name} (${bookingNumber})`,
         html: adminHtml,
       });
     }
 
-    // ---- 8️⃣ send guest confirmation ----
+    // ---- 8ï¸âƒ£ send guest confirmation ----
     await resend.emails.send({
-      from: 'Cornerstones <bookings@cornerstonescrantock.com>',
+      from: 'Cornerstones <booking@cornerstonescrantock.com>',
       to: booking.guest_email,
       subject: `Your Booking at Cornerstones Crantock Has Been Cancelled`,
       html: guestHtml,

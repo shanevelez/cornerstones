@@ -20,7 +20,7 @@ export default async function handler(req, res) {
         .json({ error: 'Missing cancellation token or reason.' });
     }
 
-    // ---- 1️⃣ find booking by token ----
+    // ---- 1ï¸âƒ£ find booking by token ----
     const { data: booking, error: lookupError } = await supabase
       .from('bookings')
       .select('id, status')
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Booking already cancelled.' });
     }
 
-    // ---- 2️⃣ record cancellation ----
+    // ---- 2ï¸âƒ£ record cancellation ----
     const { error: insertError } = await supabase
       .from('cancellations')
       .insert([{ booking_id: booking.id, reason }]);
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         .json({ error: 'Failed to record cancellation.' });
     }
 
-    // ---- 3️⃣ update booking status ----
+    // ---- 3ï¸âƒ£ update booking status ----
     const { error: updateError } = await supabase
       .from('bookings')
       .update({ status: 'cancelled' })
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
         .json({ error: 'Failed to update booking status.' });
     }
 
-    // ---- 4️⃣ notify admins + guest via email ----
+    // ---- 4ï¸âƒ£ notify admins + guest via email ----
     try {
       await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/notify-cancellation`, {
         method: 'POST',
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
       console.error('Notify cancellation failed:', notifyErr);
     }
 
-    // ---- 5️⃣ done ----
+    // ---- 5ï¸âƒ£ done ----
     return res.status(200).json({ success: true });
   } catch (err) {
     console.error('Cancellation error:', err);
