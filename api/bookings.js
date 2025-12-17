@@ -1,10 +1,9 @@
-console.log('Database URL value:', process.env.DATABASE_URL);
 import { Pool } from 'pg';
-import crypto from 'crypto'; // âœ… built-in Node module â€” no install needed
+import crypto from 'crypto';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Supabase requires SSL
+  ssl: { rejectUnauthorized: false }
 });
 
 export default async function handler(req, res) {
@@ -26,7 +25,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing required fields.' });
       }
 
-      // âœ… Generate unique cancel token
       const cancelToken = crypto.randomBytes(24).toString('hex');
 
       const query = `
@@ -56,13 +54,12 @@ export default async function handler(req, res) {
         children_16plus ?? 0,
         students ?? 0,
         family_member ?? false,
-        cancelToken // âœ… new column
+        cancelToken
       ];
 
       const { rows } = await pool.query(query, values);
       const newBooking = rows[0];
 
-      // âœ… Notify approvers
       try {
         await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/notify-approvers`, {
           method: 'POST',
@@ -83,19 +80,8 @@ export default async function handler(req, res) {
       console.error('Insert error:', error);
       return res.status(500).json({ error: 'Failed to save booking.' });
     }
-  } else if (req.method === 'GET') {
-    console.error('🔥 GET /api/bookings WAS CALLED');
-    try {
-      const { rows } = await pool.query(
-        'SELECT * FROM bookings ORDER BY created_at DESC'
-      );
-      return res.status(200).json(rows);
-    } catch (error) {
-      console.error('Fetch error:', error);
-      return res.status(500).json({ error: 'Failed to load bookings.' });
-    }
-  } else {
-    res.setHeader('Allow', ['GET', 'POST']);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
   }
+
+  res.setHeader('Allow', ['POST']);
+  res.status(405).end(`Method ${req.method} Not Allowed`);
 }
