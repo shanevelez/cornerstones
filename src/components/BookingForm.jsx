@@ -50,9 +50,9 @@ function BookingForm() {
   useEffect(() => {
     const fetchBookings = async () => {
       const { data, error } = await supabase
-        .from("bookings")
-        .select("check_in, check_out, status")
-        .in("status", ["pending", "approved"]);
+  .from("booking_availability")
+  .select("check_in, check_out");
+
 
       if (error) {
         console.error("Error loading bookings:", error);
