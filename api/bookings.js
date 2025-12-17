@@ -84,6 +84,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to save booking.' });
     }
   } else if (req.method === 'GET') {
+    console.error('🔥 GET /api/bookings WAS CALLED');
     try {
       const { rows } = await pool.query(
         'SELECT * FROM bookings ORDER BY created_at DESC'
