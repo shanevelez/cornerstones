@@ -28,6 +28,28 @@ export default async function handler(req, res) {
     if (error || !booking) throw new Error('Booking not found');
 
     const { guest_name, guest_email, check_in, check_out, id: booking_id, cancel_token } = booking;
+	
+const isFamily = booking.family_member === true;
+
+const pricingHtml = isFamily
+  ? `
+    <ul style="margin-left:20px;">
+      <li>Adults (21 +) – £32 per person per night</li>
+      <li>Grandchildren over 21 and in paid employment – £25 per person per night</li>
+      <li>Young people 16 + / students – £12 per person per night</li>
+      <li>Children under 16 – No charge</li>
+      <li>Cleaning charge – £40 per booking</li>
+    </ul>
+  `
+  : `
+    <ul style="margin-left:20px;">
+      <li>Adults (21 +) – £40 per person per night</li>
+      <li>Young people 16 + / students – £12 per person per night</li>
+      <li>Children under 16 – No charge</li>
+      <li>Cleaning charge – £40 per booking</li>
+    </ul>
+  `;
+	
 const currentYear = new Date().getFullYear();
 const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
     // ---- 2️⃣ Build email HTML based on status ----
@@ -68,13 +90,7 @@ const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
                 </table>
 
                 <h3 style="color:#0f2b4c;margin-top:24px;">Your stay</h3>
-                <ul style="margin-left:20px;">
-                  <li>Adults (21 +) – £32 per person per night</li>
-                  <li>Grandchildren over 21 and in paid employment – £25 per person per night</li>
-                  <li>Young people 16 + / students – £12 per person per night</li>
-                  <li>Children under 16 – No charge</li>
-                  <li>Cleaning charge – £40 per booking</li>
-                </ul>
+${pricingHtml}
 
                 <p style="margin-top:18px;">
                   Please transfer payment (including the cleaning charge) at least two weeks before your visit:
