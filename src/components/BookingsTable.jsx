@@ -16,6 +16,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
 
   // guard so deep link only fires once
   const hasOpenedFromDeepLink = useRef(false);
+const [familyOverride, setFamilyOverride] = useState(null);
 
   // --- Fetch logged-in Supabase user
   useEffect(() => {
@@ -92,26 +93,47 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   }, [selected]);
 
   // --- Handle approve/reject action
-  const handleApproval = async (action) => {
-    setActionLoading(true);
-    try {
-      if (!currentUserId) {
-        alert('Missing approver ID — please log in again.');
-        setActionLoading(false);
-        return;
-      }
-      const comment = document.getElementById('comment')?.value || '';
+const handleApproval = async (action) => {
+  setActionLoading(true);
 
-      const res = await fetch('/api/approvals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          booking_id: selected.id,
-          user_id: currentUserId,
-          action,
-          comment,
-        }),
-      });
+  try {
+    // persist family_member change before approval email
+if (
+  selected.status === 'pending' &&
+  familyOverride !== null &&
+  familyOverride !== selected.family_member
+) {
+  const { error } = await supabase
+    .from('bookings')
+    .update({ family_member: familyOverride })
+    .eq('id', selected.id);
+
+  if (error) {
+    alert('Failed to update family member flag.');
+    setActionLoading(false);
+    return;
+  }
+}
+
+    if (!currentUserId) {
+      alert('Missing approver ID — please log in again.');
+      setActionLoading(false);
+      return;
+    }
+
+    const comment = document.getElementById('comment')?.value || '';
+
+    const res = await fetch('/api/approvals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        booking_id: selected.id,
+        user_id: currentUserId,
+        action,
+        comment,
+      }),
+    });
+
 
       if (!res.ok) {
         const err = await res.json();
@@ -251,7 +273,11 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
               {bookings.map((b) => (
                 <tr
                   key={b.id}
-                  onClick={() => setSelected(b)}
+                  onClick={() => {
+  setSelected(b);
+  setFamilyOverride(b.family_member);
+}}
+
                   className="hover:bg-yellow-50 cursor-pointer"
                 >
                   <td className="px-4 py-2 border-b">{b.guest_name}</td>
@@ -336,10 +362,22 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                   <span className="font-semibold">Students:</span>{' '}
                   {selected.students}
                 </p>
-                <p>
-                  <span className="font-semibold">Family member:</span>{' '}
-                  {selected.family_member ? 'Yes' : 'No'}
-                </p>
+                {selected.status === 'pending' &&
+ ['Admin', 'Approver'].includes(userRole) ? (
+  <label className="flex items-center gap-2">
+    <input
+      type="checkbox"
+      checked={!!familyOverride}
+      onChange={(e) => setFamilyOverride(e.target.checked)}
+    />
+    Family member
+  </label>
+) : (
+  <p>
+    <span className="font-semibold">Family member:</span>{' '}
+    {selected.family_member ? 'Yes' : 'No'}
+  </p>
+)}
               </div>
 
               <div className="border-t pt-3 mt-3 flex justify-between items-center">
