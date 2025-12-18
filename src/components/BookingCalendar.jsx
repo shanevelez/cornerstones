@@ -4,6 +4,8 @@ import "react-day-picker/style.css"
 import "./booking-calendar.css"
 
 // normalize to date-only (no time)
+const currentYear = new Date().getFullYear();
+
 const dateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
 const sameDay = (a, b) =>
   a && b && dateOnly(a).getTime() === dateOnly(b).getTime()
@@ -40,9 +42,11 @@ function BookingCalendar({ range, onChange, bookings = [] }) {
       showOutsideDays
       // prevent clicking fully blocked days
       disabled={(day) =>
-        bookedMiddle.some((d) => sameDay(d, day)) ||
-        bookedEdge.some((d) => sameDay(d, day))
-      }
+  day.getFullYear() > currentYear ||
+  bookedMiddle.some((d) => sameDay(d, day)) ||
+  bookedEdge.some((d) => sameDay(d, day))
+}
+
       // expose sets for styling
       modifiers={{
         bookedMiddle,
