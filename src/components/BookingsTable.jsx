@@ -36,7 +36,7 @@ const [familyOverride, setFamilyOverride] = useState(null);
         .from('bookings')
         .select('*')
         .eq('status', filter)
-        .order('created_at', { ascending: false });
+        .order('check_in', { ascending: true });
 
       if (error) console.error('Error loading bookings:', error);
       else setBookings(data || []);
@@ -149,7 +149,7 @@ if (
         .from('bookings')
         .select('*')
         .eq('status', filter)
-        .order('created_at', { ascending: false });
+        .order('check_in', { ascending: true });
       if (!updated.error) setBookings(updated.data);
     } catch (err) {
       console.error('Network error:', err);
@@ -202,7 +202,7 @@ if (
         .from('bookings')
         .select('*')
         .eq('status', filter)
-        .order('created_at', { ascending: false });
+        .order('check_in', { ascending: true });
 
       if (!refreshed.error) setBookings(refreshed.data);
     } catch (err) {
