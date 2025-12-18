@@ -10,6 +10,10 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // --- ADDED (cancellation feature)
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelInput, setCancelInput] = useState('');
+
   // guard so deep link only fires once
   const hasOpenedFromDeepLink = useRef(false);
 
@@ -75,7 +79,17 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     loadReason();
   }, [selected]);
 
-
+  // --- ADDED (cancellation feature): reset cancel UI when modal closes / selection changes
+  useEffect(() => {
+    if (!selected) {
+      setShowCancel(false);
+      setCancelInput('');
+    } else {
+      // when switching between bookings, don’t carry the previous cancellation UI state
+      setShowCancel(false);
+      setCancelInput('');
+    }
+  }, [selected]);
 
   // --- Handle approve/reject action
   const handleApproval = async (action) => {
@@ -87,7 +101,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
         return;
       }
       const comment = document.getElementById('comment')?.value || '';
-      
 
       const res = await fetch('/api/approvals', {
         method: 'POST',
@@ -119,6 +132,60 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     } catch (err) {
       console.error('Network error:', err);
       alert('Network error while submitting approval.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // --- ADDED (cancellation feature): cancel approved booking with reason + write to cancellations table
+  const confirmCancel = async () => {
+    if (!selected || !cancelInput.trim()) return;
+
+    setActionLoading(true);
+    try {
+      // 1) update booking status
+      const { error: bookingError } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', selected.id);
+
+      if (bookingError) {
+        console.error('Error cancelling booking:', bookingError);
+        alert('Failed to cancel booking.');
+        return;
+      }
+
+      // 2) write cancellation reason
+      const { error: cancelError } = await supabase
+        .from('cancellations')
+        .insert({
+          booking_id: selected.id,
+          reason: cancelInput.trim(),
+        });
+
+      if (cancelError) {
+        console.error('Error writing cancellation reason:', cancelError);
+        alert('Cancelled booking, but failed to record reason.');
+        // keep going; booking is already cancelled
+      }
+
+      // 3) update modal state
+      setSelected((prev) => (prev ? { ...prev, status: 'cancelled' } : prev));
+      setCancelReason(cancelInput.trim());
+      setShowCancel(false);
+      setCancelInput('');
+
+      // 4) refresh list (same pattern as approvals)
+      const refreshed = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('status', filter)
+        .order('created_at', { ascending: false });
+
+      if (!refreshed.error) setBookings(refreshed.data);
+    } catch (err) {
+      console.error('Network error while cancelling:', err);
+      alert('Network error while cancelling booking.');
     } finally {
       setActionLoading(false);
     }
@@ -302,6 +369,58 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                   </p>
                 </div>
               )}
+
+              {/* ADDED (cancellation feature): cancel approved booking */}
+              {selected.status === 'approved' &&
+                ['Admin', 'Approver'].includes(userRole) && (
+                  <div className="mt-6 space-y-3 border-t pt-4">
+                    {!showCancel ? (
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => setShowCancel(true)}
+                          className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                        >
+                          Cancel booking
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <label className="block font-semibold text-gray-700">
+                          Cancellation reason
+                        </label>
+                        <textarea
+                          value={cancelInput}
+                          onChange={(e) => setCancelInput(e.target.value)}
+                          placeholder="Explain why this booking is being cancelled…"
+                          rows={3}
+                          className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-primary focus:outline-none"
+                        />
+                        <div className="flex justify-end gap-3 pt-1">
+                          <button
+                            onClick={() => {
+                              setShowCancel(false);
+                              setCancelInput('');
+                            }}
+                            className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
+                          >
+                            Back
+                          </button>
+                          <button
+                            onClick={confirmCancel}
+                            disabled={!cancelInput.trim()}
+                            className={`px-4 py-2 rounded-md text-white ${
+                              cancelInput.trim()
+                                ? 'bg-red-600 hover:bg-red-700'
+                                : 'bg-red-300 cursor-not-allowed'
+                            }`}
+                          >
+                            Confirm cancellation
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
               {/* Approve/Reject */}
               {selected.status === 'pending' && (
