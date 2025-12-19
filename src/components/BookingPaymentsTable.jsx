@@ -27,9 +27,10 @@ function BookingPaymentsTable({ userRole }) {
 `)
 
       .order('check_in', {
-        foreignTable: 'bookings',
-        ascending: sortDir === 'asc',
-      });
+  referencedTable: 'bookings',
+  ascending: sortDir === 'asc',
+});
+
 
     if (!error) setRows(data || []);
     else console.error('Failed to load booking payments', error);
