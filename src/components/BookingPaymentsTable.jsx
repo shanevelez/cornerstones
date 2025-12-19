@@ -6,7 +6,6 @@ function BookingPaymentsTable({ userRole }) {
   const [loading, setLoading] = useState(true);
   const [sortDir, setSortDir] = useState('asc');
   const [updatingId, setUpdatingId] = useState(null);
-  const [loadError, setLoadError] = useState(null);
 
   const canEdit = ['Admin', 'Payment Manager'].includes(userRole);
 
@@ -16,11 +15,10 @@ function BookingPaymentsTable({ userRole }) {
     const { data, error } = await supabase
       .from('booking_payments')
       .select(`
-        id,
         booking_id,
         booking_ref,
         is_paid,
-        bookings:bookings!booking_id (
+        bookings (
           guest_name,
           check_in,
           check_out
@@ -31,14 +29,10 @@ function BookingPaymentsTable({ userRole }) {
         ascending: sortDir === 'asc',
       });
 
-    console.log('booking_payments query result:', { error, data });
-
     if (error) {
       console.error('booking_payments error:', error);
-      setLoadError(error);
       setRows([]);
     } else {
-      setLoadError(null);
       setRows(data || []);
     }
 
@@ -52,12 +46,15 @@ function BookingPaymentsTable({ userRole }) {
   const togglePaid = async (row) => {
     if (!canEdit) return;
 
-    setUpdatingId(row.id);
+    setUpdatingId(row.booking_id);
 
     const { error } = await supabase
       .from('booking_payments')
-      .update({ is_paid: !row.is_paid })
-      .eq('id', row.id);
+      .update({
+        is_paid: !row.is_paid,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('booking_id', row.booking_id);
 
     if (error) {
       console.error('Failed to update payment status', error);
@@ -65,7 +62,9 @@ function BookingPaymentsTable({ userRole }) {
     } else {
       setRows((prev) =>
         prev.map((r) =>
-          r.id === row.id ? { ...r, is_paid: !r.is_paid } : r
+          r.booking_id === row.booking_id
+            ? { ...r, is_paid: !r.is_paid }
+            : r
         )
       );
     }
@@ -78,15 +77,7 @@ function BookingPaymentsTable({ userRole }) {
   }
 
   if (rows.length === 0) {
-    return (
-      <p className="text-gray-600">
-        No bookings found.
-        <br />
-        <span className="text-red-600">
-          {String(loadError?.message || '')}
-        </span>
-      </p>
-    );
+    return <p className="text-gray-600">No bookings found.</p>;
   }
 
   return (
@@ -110,7 +101,7 @@ function BookingPaymentsTable({ userRole }) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id} className="hover:bg-yellow-50">
+            <tr key={r.booking_id} className="hover:bg-yellow-50">
               <td className="px-4 py-2 border-b font-mono">
                 {r.booking_ref}
               </td>
@@ -126,7 +117,7 @@ function BookingPaymentsTable({ userRole }) {
               <td className="px-4 py-2 border-b text-center">
                 {canEdit ? (
                   <button
-                    disabled={updatingId === r.id}
+                    disabled={updatingId === r.booking_id}
                     onClick={() => togglePaid(r)}
                     className={`px-3 py-1 rounded-md text-sm font-medium ${
                       r.is_paid
