@@ -64,13 +64,10 @@ useEffect(() => {
       console.error('Failed to update payment status', error);
       alert('Failed to update payment status.');
     } else {
-      setRows((prev) =>
-        prev.map((r) =>
-          r.booking_id === row.booking_id
-            ? { ...r, is_paid: !r.is_paid }
-            : r
-        )
-      );
+setRows(prev =>
+  prev.filter(r => r.booking_id !== row.booking_id)
+);
+
     }
 
     setUpdatingId(null);
