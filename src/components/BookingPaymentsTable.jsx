@@ -6,6 +6,7 @@ function BookingPaymentsTable({ userRole }) {
   const [loading, setLoading] = useState(true);
   const [sortDir, setSortDir] = useState('asc');
   const [updatingId, setUpdatingId] = useState(null);
+const [paidFilter, setPaidFilter] = useState('unpaid');
 
   const canEdit = ['Admin', 'Payment Manager'].includes(userRole);
 
@@ -14,20 +15,22 @@ function BookingPaymentsTable({ userRole }) {
 
     const { data, error } = await supabase
       .from('booking_payments')
-      .select(`
-        booking_id,
-        booking_ref,
-        is_paid,
-        bookings (
-          guest_name,
-          check_in,
-          check_out
-        )
-      `)
-      .order('check_in', {
-        referencedTable: 'bookings',
-        ascending: sortDir === 'asc',
-      });
+.select(`
+  booking_id,
+  booking_ref,
+  is_paid,
+  bookings (
+    guest_name,
+    check_in,
+    check_out
+  )
+`)
+.eq('is_paid', paidFilter === 'paid')
+.order('check_in', {
+  referencedTable: 'bookings',
+  ascending: sortDir === 'asc',
+});
+
 
     if (error) {
       console.error('booking_payments error:', error);
@@ -39,9 +42,10 @@ function BookingPaymentsTable({ userRole }) {
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchPayments();
-  }, [sortDir]);
+useEffect(() => {
+  fetchPayments();
+}, [sortDir, paidFilter]);
+
 
   const togglePaid = async (row) => {
     if (!canEdit) return;
@@ -81,7 +85,37 @@ function BookingPaymentsTable({ userRole }) {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="mb-6">
+  <div className="hidden sm:flex gap-3">
+    {['unpaid', 'paid'].map((s) => (
+      <button
+        key={s}
+        onClick={() => setPaidFilter(s)}
+        className={`px-4 py-2 rounded-md border ${
+          paidFilter === s
+            ? 'bg-primary text-white'
+            : 'bg-white text-gray-700 hover:bg-gray-100'
+        }`}
+      >
+        {s.charAt(0).toUpperCase() + s.slice(1)}
+      </button>
+    ))}
+  </div>
+
+  {/* Mobile dropdown */}
+  <div className="sm:hidden">
+    <select
+      value={paidFilter}
+      onChange={(e) => setPaidFilter(e.target.value)}
+      className="w-full border rounded-md p-2 bg-white text-gray-700"
+    >
+      <option value="unpaid">Unpaid</option>
+      <option value="paid">Paid</option>
+    </select>
+  </div>
+</div>
+
+	<div className="overflow-x-auto">
       <table className="min-w-full text-left border border-gray-200">
         <thead className="bg-gray-100 text-gray-700">
           <tr>
