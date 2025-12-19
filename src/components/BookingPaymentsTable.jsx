@@ -26,18 +26,24 @@ const [paidFilter, setPaidFilter] = useState('unpaid');
   )
 `)
 .eq('is_paid', paidFilter === 'paid')
-.order('check_in', {
-  referencedTable: 'bookings',
-  ascending: sortDir === 'asc',
-});
 
 
-    if (error) {
-      console.error('booking_payments error:', error);
-      setRows([]);
-    } else {
-      setRows(data || []);
-    }
+
+if (error) {
+  console.error('booking_payments error:', error);
+  setRows([]);
+} else {
+  const sorted = [...(data || [])].sort((a, b) => {
+    const aDate = new Date(a.bookings.check_in);
+    const bDate = new Date(b.bookings.check_in);
+    return sortDir === 'asc'
+      ? aDate - bDate
+      : bDate - aDate;
+  });
+
+  setRows(sorted);
+}
+
 
     setLoading(false);
   };
@@ -63,12 +69,10 @@ useEffect(() => {
     if (error) {
       console.error('Failed to update payment status', error);
       alert('Failed to update payment status.');
-    } else {
-setRows(prev =>
-  prev.filter(r => r.booking_id !== row.booking_id)
-);
+} else {
+  fetchPayments();
+}
 
-    }
 
     setUpdatingId(null);
   };
