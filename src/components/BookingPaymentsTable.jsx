@@ -12,24 +12,30 @@ function BookingPaymentsTable({ userRole }) {
   const fetchPayments = async () => {
     setLoading(true);
 
-    const { data, error } = await supabase
-.from('booking_payments')
-.select(`
-  id,
-  booking_id,
-  booking_ref,
-  is_paid,
-  bookings:bookings!booking_id (
-    guest_name,
-    check_in,
-    check_out
-  )
-`)
+const { data, error } = await supabase
+  .from('booking_payments')
+  .select(`
+    id,
+    booking_id,
+    booking_ref,
+    is_paid,
+    bookings:bookings!booking_id (
+      guest_name,
+      check_in,
+      check_out
+    )
+  `)
+  .order('check_in', {
+    referencedTable: 'bookings',
+    ascending: sortDir === 'asc',
+  });
 
-      .order('check_in', {
-  referencedTable: 'bookings',
-  ascending: sortDir === 'asc',
-});
+console.log('booking_payments query result:', { error, data });
+
+if (error) {
+  console.error('booking_payments error:', error);
+}
+
 
 
     if (!error) setRows(data || []);
@@ -71,7 +77,13 @@ function BookingPaymentsTable({ userRole }) {
   }
 
   if (rows.length === 0) {
-    return <p className="text-gray-600">No bookings found.</p>;
+    return <p className="text-gray-600">
+  No bookings found.
+  <br />
+  <span className="text-red-600">
+    {String(error?.message || '')}
+  </span>
+</p>;
   }
 
   return (
