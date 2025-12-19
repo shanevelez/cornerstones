@@ -6,40 +6,41 @@ function BookingPaymentsTable({ userRole }) {
   const [loading, setLoading] = useState(true);
   const [sortDir, setSortDir] = useState('asc');
   const [updatingId, setUpdatingId] = useState(null);
+  const [loadError, setLoadError] = useState(null);
 
   const canEdit = ['Admin', 'Payment Manager'].includes(userRole);
 
   const fetchPayments = async () => {
     setLoading(true);
 
-const { data, error } = await supabase
-  .from('booking_payments')
-  .select(`
-    id,
-    booking_id,
-    booking_ref,
-    is_paid,
-    bookings:bookings!booking_id (
-      guest_name,
-      check_in,
-      check_out
-    )
-  `)
-  .order('check_in', {
-    referencedTable: 'bookings',
-    ascending: sortDir === 'asc',
-  });
+    const { data, error } = await supabase
+      .from('booking_payments')
+      .select(`
+        id,
+        booking_id,
+        booking_ref,
+        is_paid,
+        bookings:bookings!booking_id (
+          guest_name,
+          check_in,
+          check_out
+        )
+      `)
+      .order('check_in', {
+        referencedTable: 'bookings',
+        ascending: sortDir === 'asc',
+      });
 
-console.log('booking_payments query result:', { error, data });
+    console.log('booking_payments query result:', { error, data });
 
-if (error) {
-  console.error('booking_payments error:', error);
-}
-
-
-
-    if (!error) setRows(data || []);
-    else console.error('Failed to load booking payments', error);
+    if (error) {
+      console.error('booking_payments error:', error);
+      setLoadError(error);
+      setRows([]);
+    } else {
+      setLoadError(null);
+      setRows(data || []);
+    }
 
     setLoading(false);
   };
@@ -77,13 +78,15 @@ if (error) {
   }
 
   if (rows.length === 0) {
-    return <p className="text-gray-600">
-  No bookings found.
-  <br />
-  <span className="text-red-600">
-    {String(error?.message || '')}
-  </span>
-</p>;
+    return (
+      <p className="text-gray-600">
+        No bookings found.
+        <br />
+        <span className="text-red-600">
+          {String(loadError?.message || '')}
+        </span>
+      </p>
+    );
   }
 
   return (
@@ -107,10 +110,7 @@ if (error) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr
-              key={r.id}
-              className="hover:bg-yellow-50"
-            >
+            <tr key={r.id} className="hover:bg-yellow-50">
               <td className="px-4 py-2 border-b font-mono">
                 {r.booking_ref}
               </td>
