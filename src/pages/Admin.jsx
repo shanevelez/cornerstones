@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import BookingsTable from '../components/BookingsTable';
 import CleanerTable from '../components/CleanerTable';
+import BookingPaymentsTable from '../components/BookingPaymentsTable';
+
 
 
 function Admin() {
