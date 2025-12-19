@@ -388,6 +388,15 @@ function Admin() {
             Your account doesn’t have permission to access this dashboard.
           </div>
         )}
+{['Admin', 'Payment Manager'].includes(userRole) && (
+  <div className="mt-12">
+    <h3 className="text-xl font-heading text-primary mb-3">
+      Booking Payments
+    </h3>
+    <BookingPaymentsTable userRole={userRole} />
+  </div>
+)}
+
 {['Admin', 'Cleaner'].includes(userRole) && (
   <div className="mt-12">
     <h3 className="text-xl font-heading text-primary mb-3">
@@ -396,6 +405,7 @@ function Admin() {
     <CleanerTable />
   </div>
 )}
+
 
         {userRole === 'Admin' && (
           <div className="mt-12">
