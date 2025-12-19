@@ -85,6 +85,7 @@ useEffect(() => {
   }
 
   return (
+  <>
     <div className="mb-6">
   <div className="hidden sm:flex gap-3">
     {['unpaid', 'paid'].map((s) => (
@@ -178,6 +179,7 @@ useEffect(() => {
         </tbody>
       </table>
     </div>
+  </>
   );
 }
 
