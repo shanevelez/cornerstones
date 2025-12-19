@@ -385,7 +385,7 @@ function Admin() {
           </div>
         )}
 
-        {!['Admin', 'Approver'].includes(userRole) && (
+        {!['Admin', 'Approver', 'Payment Manager', 'Cleaner'].includes(userRole) && (
           <div className="text-red-600 font-semibold text-center sm:text-left">
             Your account doesn’t have permission to access this dashboard.
           </div>
