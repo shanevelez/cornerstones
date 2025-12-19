@@ -13,18 +13,19 @@ function BookingPaymentsTable({ userRole }) {
     setLoading(true);
 
     const { data, error } = await supabase
-      .from('booking_payments')
-      .select(`
-        id,
-        booking_id,
-        booking_ref,
-        is_paid,
-        bookings (
-          guest_name,
-          check_in,
-          check_out
-        )
-      `)
+.from('booking_payments')
+.select(`
+  id,
+  booking_id,
+  booking_ref,
+  is_paid,
+  bookings:bookings!booking_id (
+    guest_name,
+    check_in,
+    check_out
+  )
+`)
+
       .order('check_in', {
         foreignTable: 'bookings',
         ascending: sortDir === 'asc',
