@@ -80,9 +80,7 @@ useEffect(() => {
     return <p className="text-gray-600">Loading payment status…</p>;
   }
 
-  if (rows.length === 0) {
-    return <p className="text-gray-600">No bookings found.</p>;
-  }
+  
 
   return (
   <>
