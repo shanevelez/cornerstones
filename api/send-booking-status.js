@@ -50,8 +50,8 @@ const pricingHtml = isFamily
     </ul>
   `;
 	
-const currentYear = new Date().getFullYear();
-const bookingNumber = `${currentYear}${String(booking_id).padStart(2, '0')}`;
+const checkInYear = new Date(check_in).getFullYear();
+const bookingNumber = `${checkInYear}${String(booking_id).padStart(2, '0')}`;
     // ---- 2️⃣ Build email HTML based on status ----
     let subject = '';
     let html = '';
