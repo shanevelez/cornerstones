@@ -235,7 +235,7 @@ setBookings((prev) => [
             <div className="flex items-center gap-2">
               <div
                 className="w-5 h-5"
-                style={{ backgroundColor: "var(--booked-strong)" }}
+                style={{ backgroundColor: "var(--booked-soft)" }}
               />
               <span>Booked</span>
             </div>
