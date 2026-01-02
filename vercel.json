@@ -1,5 +1,14 @@
 {
+  "crons": [
+    {
+      "path": "/api/daily-tasks",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
   ]
 }
