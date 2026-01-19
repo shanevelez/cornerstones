@@ -207,6 +207,10 @@ setBookings((prev) => [
   }
 };
 
+  const totalGuests = Number(formData.adults || 0) + 
+                      Number(formData.grandchildren_over21 || 0) + 
+                      Number(formData.children_16plus || 0) + 
+                      Number(formData.students || 0);
 
   return (
     <section id="booking" className="max-w-3xl mx-auto w-full py-16 px-6">
@@ -341,6 +345,13 @@ setBookings((prev) => [
 
         {showDetails && (
           <div className="space-y-4" ref={detailsRef}>
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+              <p className="text-sm text-blue-700">
+                <strong>Important:</strong> Please count each person <strong>only once</strong>. 
+                For example, a student should be counted under "Students" but <strong>not</strong> under "Adults."
+              </p>
+            </div>
+
             <div>
               <label className="block font-sans text-sm mb-1">Name</label>
               <input
@@ -370,7 +381,7 @@ setBookings((prev) => [
             {/* Number fields */}
             <div>
               <label className="block font-sans text-sm mb-1">
-                Number of Adults
+                Number of Adults <span className="text-gray-500 font-normal italic">(excluding students/grandchildren/16+)</span>
               </label>
               <input
                 type="number"
@@ -430,6 +441,11 @@ setBookings((prev) => [
                 onChange={handleChange}
                 className="w-full border rounded-md px-4 py-2"
               />
+            </div>
+
+            <div className="py-2 border-t border-gray-100 flex justify-between items-center">
+              <span className="font-semibold text-gray-700 text-sm">Total Guests:</span>
+              <span className="bg-gray-100 px-3 py-1 rounded-full font-bold text-primary">{totalGuests}</span>
             </div>
 
             <div>
