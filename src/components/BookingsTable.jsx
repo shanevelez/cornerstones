@@ -21,6 +21,15 @@ const overlapsExceptEdges = (r, b) => {
   return true;
 };
 
+// FIX: Format date as YYYY-MM-DD using LOCAL time (prevents the UTC shift bug)
+const formatLocalYMD = (d) => {
+    if (!d) return null;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   const [bookings, setBookings] = useState([]);
   const [filter, setFilter] = useState('pending');
@@ -146,10 +155,8 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
       });
   };
 
-  // vvvvv FIXED FUNCTION vvvvv
   const handleSingleDateSelect = (range, selectedDay) => {
-      // CRITICAL FIX: We ignore the 'range' argument because it defaults to the start date.
-      // We use 'selectedDay', which is the literal date you clicked on.
+      // Use 'selectedDay' (the literal clicked date)
       const clickDate = selectedDay;
       if (!clickDate) return; 
 
@@ -183,17 +190,21 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
       setDateError('');
       setEditRange(proposedRange);
   };
-  // ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   const saveDateChange = async () => {
       if (dateError || !editRange.from || !editRange.to) return;
 
       setActionLoading(true);
+
+      // FIX IS HERE: Convert to local "YYYY-MM-DD" string before sending
+      const checkInStr = formatLocalYMD(editRange.from);
+      const checkOutStr = formatLocalYMD(editRange.to);
+
       const { error } = await supabase
         .from('bookings')
         .update({
-            check_in: editRange.from,
-            check_out: editRange.to
+            check_in: checkInStr,
+            check_out: checkOutStr
         })
         .eq('id', selected.id);
 
@@ -203,6 +214,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
           alert("Failed to update dates.");
       } else {
           // Update local state immediately
+          // (We use ISO string for React state, which handles the display correctly)
           setSelected(prev => ({
               ...prev,
               check_in: editRange.from.toISOString(),
