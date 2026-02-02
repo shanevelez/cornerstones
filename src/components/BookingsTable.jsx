@@ -16,6 +16,7 @@ const overlapsExceptEdges = (r, b) => {
   
   const overlaps = start < bEnd && end > bStart;
   if (!overlaps) return false;
+  // Touching edges are allowed
   if (sameDay(start, bEnd) || sameDay(end, bStart)) return false;
   return true;
 };
@@ -41,6 +42,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   const hasOpenedFromDeepLink = useRef(false);
   const [familyOverride, setFamilyOverride] = useState(null);
 
+  // 1. Fetch User
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -49,6 +51,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     getUser();
   }, []);
 
+  // 2. Fetch Bookings List
   useEffect(() => {
     const fetchBookings = async () => {
       setLoading(true);
@@ -65,6 +68,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     fetchBookings();
   }, [filter]);
 
+  // 3. Deep Link Handler
   useEffect(() => {
     if (!deepLinkId || hasOpenedFromDeepLink.current || bookings.length === 0) return;
     const match = bookings.find((b) => b.id === Number(deepLinkId));
@@ -91,17 +95,21 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     });
   };
 
+  // 4. Calculate Blocked Dates
   useEffect(() => {
     if (!selected) return;
     const fetchBlockedDates = async () => {
+        // Fetch ALL approved bookings
         const { data, error } = await supabase
             .from('bookings')
-            .select('check_in, check_out')
-            .eq('status', 'approved')
-            .neq('id', selected.id); 
+            .select('id, check_in, check_out')
+            .eq('status', 'approved');
 
         if (!error && data) {
-            const mapped = data.map(b => ({
+            // Javascript Filter: Ensure we NEVER include the current booking ID
+            const others = data.filter(b => b.id !== selected.id);
+
+            const mapped = others.map(b => ({
                 from: new Date(b.check_in),
                 to: new Date(b.check_out)
             }));
@@ -111,6 +119,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     fetchBlockedDates();
   }, [selected]);
 
+  // 5. Load Cancel Reason
   useEffect(() => {
     const loadReason = async () => {
       if (selected?.status === 'cancelled') {
@@ -130,17 +139,18 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   const startEditing = (mode) => {
       setEditMode(mode);
       setDateError('');
+      // Reset to DB values so calendar matches reality
       setEditRange({
           from: new Date(selected.check_in),
           to: new Date(selected.check_out)
       });
   };
 
-  const handleSingleDateSelect = (calendarSelection) => {
-      // "calendarSelection" comes from the DayPicker
-      // Because we use mode="range", it returns { from, to }.
-      // We grab 'from' as the clicked date.
-      const clickDate = calendarSelection?.from;
+  // vvvvv FIXED FUNCTION vvvvv
+  const handleSingleDateSelect = (range, selectedDay) => {
+      // CRITICAL FIX: We ignore the 'range' argument because it defaults to the start date.
+      // We use 'selectedDay', which is the literal date you clicked on.
+      const clickDate = selectedDay;
       if (!clickDate) return; 
 
       let proposedRange = { from: undefined, to: undefined };
@@ -151,7 +161,9 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
           proposedRange = { from: new Date(selected.check_in), to: clickDate };
       }
 
+      // 1. Validate Physics (Start < End)
       if (proposedRange.from >= proposedRange.to) {
+          // Update the visual selection anyway so you see what you clicked
           setEditRange(proposedRange); 
           setDateError(editMode === 'check_in' 
               ? "Check-in must be before Check-out." 
@@ -159,19 +171,23 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
           return;
       }
 
+      // 2. Validate Overlaps
       const illegal = blockedRanges.some((b) => overlapsExceptEdges(proposedRange, b));
       if (illegal) {
           setEditRange(proposedRange);
-          setDateError("Overlap detected. Please choose another date.");
+          setDateError("Overlap detected with another booking.");
           return;
       }
 
+      // 3. Valid
       setDateError('');
       setEditRange(proposedRange);
   };
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   const saveDateChange = async () => {
       if (dateError || !editRange.from || !editRange.to) return;
+
       setActionLoading(true);
       const { error } = await supabase
         .from('bookings')
@@ -182,15 +198,18 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
         .eq('id', selected.id);
 
       setActionLoading(false);
+
       if (error) {
           alert("Failed to update dates.");
       } else {
+          // Update local state immediately
           setSelected(prev => ({
               ...prev,
               check_in: editRange.from.toISOString(),
               check_out: editRange.to.toISOString()
           }));
           setEditMode(null);
+          // Refresh table list
           const updated = await supabase
             .from('bookings')
             .select('*')
@@ -218,6 +237,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
         body: JSON.stringify({ booking_id: selected.id, user_id: currentUserId, action, comment }),
       });
       if (!res.ok) throw new Error();
+      
       setSelected(null);
       const updated = await supabase.from('bookings').select('*').eq('status', filter).order('check_in', { ascending: true });
       if (!updated.error) setBookings(updated.data);
@@ -353,7 +373,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                 )}
               </div>
 
-              {/* RESTORED STATS & STATUS */}
+              {/* STATS & INFO */}
               <div className="border-t pt-3 mt-3">
                 <p><span className="font-semibold">Adults:</span> {selected.adults}</p>
                 <p><span className="font-semibold">Grandchildren over 21:</span> {selected.grandchildren_over21}</p>
@@ -410,7 +430,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                       <button onClick={confirmCancel} className="bg-red-600 text-white px-3 py-1 rounded w-full">Confirm Cancellation</button>
                   </div>
               )}
-
             </div>
           </div>
         </div>
