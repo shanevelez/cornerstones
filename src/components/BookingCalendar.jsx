@@ -22,7 +22,7 @@ const expandInteriorDays = (booking) => {
   return days
 }
 
-function BookingCalendar({ range, onChange, bookings = [] }) {
+function BookingCalendar({ range, onChange, bookings = [], ...props }) {
   // build modifier day sets
   const bookedMiddle = bookings.flatMap(expandInteriorDays) // fully blocked inside
   const bookedStart = bookings.map((b) => dateOnly(b.from)) // checkout-only
@@ -60,6 +60,7 @@ function BookingCalendar({ range, onChange, bookings = [] }) {
         bookedEnd: "bookedEnd",
         bookedEdge: "bookedEdge",
       }}
+      {...props}
     />
   )
 }
