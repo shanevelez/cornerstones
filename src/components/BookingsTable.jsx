@@ -7,7 +7,7 @@ const dateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const sameDay = (a, b) =>
   a && b && dateOnly(a).getTime() === dateOnly(b).getTime();
 
-// Physics check: Does Range A overlap Range B?
+// Physics check
 const overlapsExceptEdges = (r, b) => {
   const start = dateOnly(r.from);
   const end = dateOnly(r.to);
@@ -16,7 +16,6 @@ const overlapsExceptEdges = (r, b) => {
   
   const overlaps = start < bEnd && end > bStart;
   if (!overlaps) return false;
-  // Allow touching edges (leaving same day someone arrives)
   if (sameDay(start, bEnd) || sameDay(end, bStart)) return false;
   return true;
 };
@@ -26,18 +25,15 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
   
-  // Selection & Actions
   const [selected, setSelected] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
-
-  // Cancellation
   const [showCancel, setShowCancel] = useState(false);
   const [cancelInput, setCancelInput] = useState('');
   
   // --- SINGLE DATE EDIT STATE ---
-  const [editMode, setEditMode] = useState(null); // 'check_in' or 'check_out'
+  const [editMode, setEditMode] = useState(null); 
   const [editRange, setEditRange] = useState({ from: undefined, to: undefined });
   const [blockedRanges, setBlockedRanges] = useState([]);
   const [dateError, setDateError] = useState(''); 
@@ -45,7 +41,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   const hasOpenedFromDeepLink = useRef(false);
   const [familyOverride, setFamilyOverride] = useState(null);
 
-  // Fetch User
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -54,7 +49,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     getUser();
   }, []);
 
-  // Fetch Bookings
   useEffect(() => {
     const fetchBookings = async () => {
       setLoading(true);
@@ -71,7 +65,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     fetchBookings();
   }, [filter]);
 
-  // Deep Link
   useEffect(() => {
     if (!deepLinkId || hasOpenedFromDeepLink.current || bookings.length === 0) return;
     const match = bookings.find((b) => b.id === Number(deepLinkId));
@@ -92,14 +85,12 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     setCancelInput('');
     setEditMode(null);
     setDateError('');
-    // Initialize edit range
     setEditRange({
         from: new Date(booking.check_in),
         to: new Date(booking.check_out)
     });
   };
 
-  // Load blocked dates (excluding current booking)
   useEffect(() => {
     if (!selected) return;
     const fetchBlockedDates = async () => {
@@ -120,7 +111,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     fetchBlockedDates();
   }, [selected]);
 
-  // Load cancellation reason
   useEffect(() => {
     const loadReason = async () => {
       if (selected?.status === 'cancelled') {
@@ -140,7 +130,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   const startEditing = (mode) => {
       setEditMode(mode);
       setDateError('');
-      // Reset range to DB values to ensure accuracy
       setEditRange({
           from: new Date(selected.check_in),
           to: new Date(selected.check_out)
@@ -148,30 +137,21 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   };
 
   const handleSingleDateSelect = (calendarSelection) => {
-      // User clicked a date. 'calendarSelection' might be a range or partial range.
-      // We only care about the 'from' date (the date they just clicked).
+      // "calendarSelection" comes from the DayPicker
+      // Because we use mode="range", it returns { from, to }.
+      // We grab 'from' as the clicked date.
       const clickDate = calendarSelection?.from;
       if (!clickDate) return; 
 
       let proposedRange = { from: undefined, to: undefined };
 
       if (editMode === 'check_in') {
-          // Change Check-in, KEEP Check-out
-          proposedRange = {
-              from: clickDate,
-              to: new Date(selected.check_out)
-          };
+          proposedRange = { from: clickDate, to: new Date(selected.check_out) };
       } else if (editMode === 'check_out') {
-          // KEEP Check-in, Change Check-out
-          proposedRange = {
-              from: new Date(selected.check_in),
-              to: clickDate
-          };
+          proposedRange = { from: new Date(selected.check_in), to: clickDate };
       }
 
-      // 1. Validate: Start < End
       if (proposedRange.from >= proposedRange.to) {
-          // Still update the view so they see the date they clicked
           setEditRange(proposedRange); 
           setDateError(editMode === 'check_in' 
               ? "Check-in must be before Check-out." 
@@ -179,7 +159,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
           return;
       }
 
-      // 2. Validate: Overlaps
       const illegal = blockedRanges.some((b) => overlapsExceptEdges(proposedRange, b));
       if (illegal) {
           setEditRange(proposedRange);
@@ -187,14 +166,12 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
           return;
       }
 
-      // 3. Success
       setDateError('');
       setEditRange(proposedRange);
   };
 
   const saveDateChange = async () => {
       if (dateError || !editRange.from || !editRange.to) return;
-
       setActionLoading(true);
       const { error } = await supabase
         .from('bookings')
@@ -205,18 +182,15 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
         .eq('id', selected.id);
 
       setActionLoading(false);
-
       if (error) {
           alert("Failed to update dates.");
       } else {
-          // Local update
           setSelected(prev => ({
               ...prev,
               check_in: editRange.from.toISOString(),
               check_out: editRange.to.toISOString()
           }));
           setEditMode(null);
-          // Refresh list
           const updated = await supabase
             .from('bookings')
             .select('*')
@@ -226,8 +200,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
       }
   };
 
-
-  // --- Approval/Rejection Logic ---
   const handleApproval = async (action) => {
     setActionLoading(true);
     try {
@@ -246,7 +218,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
         body: JSON.stringify({ booking_id: selected.id, user_id: currentUserId, action, comment }),
       });
       if (!res.ok) throw new Error();
-      
       setSelected(null);
       const updated = await supabase.from('bookings').select('*').eq('status', filter).order('check_in', { ascending: true });
       if (!updated.error) setBookings(updated.data);
@@ -279,7 +250,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   return (
     <section className="mt-8">
       <h3 className="text-2xl font-heading text-primary mb-4">Bookings</h3>
-      {/* Filters */}
       <div className="mb-6 flex gap-3">
         {['pending', 'approved', 'rejected', 'cancelled'].map((s) => (
           <button key={s} onClick={() => setFilter(s)} className={`px-4 py-2 rounded-md border ${filter === s ? 'bg-primary text-white' : 'bg-white text-gray-700'}`}>
@@ -316,7 +286,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
       {selected && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-xl overflow-y-auto max-h-[90vh] border border-gray-200 relative">
-             {/* Spinner overlay */}
             {actionLoading && <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-50"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}
             
             <div className="flex justify-between items-center bg-primary text-white px-6 py-4">
@@ -359,9 +328,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                         {editMode === 'check_in' ? 'Change Check-in Date' : 'Change Check-out Date'}
                     </h5>
                     
-                    {/* CRITICAL: We pass defaultMonth so it opens to the booking month.
-                       We pass mode="range" but handleSingleDateSelect makes it act like a single click.
-                    */}
                     <div className="scale-90 origin-top">
                         <BookingCalendar 
                             bookings={blockedRanges}
@@ -387,7 +353,41 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                 )}
               </div>
 
-              {/* Standard Footer Actions */}
+              {/* RESTORED STATS & STATUS */}
+              <div className="border-t pt-3 mt-3">
+                <p><span className="font-semibold">Adults:</span> {selected.adults}</p>
+                <p><span className="font-semibold">Grandchildren over 21:</span> {selected.grandchildren_over21}</p>
+                <p><span className="font-semibold">Children 16 +:</span> {selected.children_16plus}</p>
+                <p><span className="font-semibold">Students:</span> {selected.students}</p>
+                {selected.status === 'pending' && ['Admin', 'Approver'].includes(userRole) ? (
+                  <label className="flex items-center gap-2 mt-2">
+                    <input type="checkbox" checked={!!familyOverride} onChange={(e) => setFamilyOverride(e.target.checked)} />
+                    Family member
+                  </label>
+                ) : (
+                  <p><span className="font-semibold">Family member:</span> {selected.family_member ? 'Yes' : 'No'}</p>
+                )}
+              </div>
+
+              <div className="border-t pt-3 mt-3 flex justify-between items-center">
+                <p className="font-semibold">Status:</p>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${
+                    selected.status === 'approved' ? 'bg-green-100 text-green-700' :
+                    selected.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                    selected.status === 'cancelled' ? 'bg-gray-200 text-gray-800' : 'bg-yellow-100 text-yellow-700'
+                  }`}>
+                  {selected.status}
+                </span>
+              </div>
+
+              {selected.status === 'cancelled' && (
+                <div className="mt-4 border-t pt-3">
+                  <p className="font-semibold text-red-700">Cancellation Reason:</p>
+                  <p className="bg-gray-50 border rounded-md p-2">{cancelReason}</p>
+                </div>
+              )}
+
+              {/* ACTION BUTTONS */}
               {!editMode && selected.status === 'pending' && (
                 <div className="border-t pt-4">
                   <textarea id="comment" placeholder="Comments..." className="w-full border p-2 rounded mb-3" />
