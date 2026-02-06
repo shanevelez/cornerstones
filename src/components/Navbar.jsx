@@ -24,6 +24,12 @@ function Navbar() {
           >
             Local Recs
           </a>
+             <a
+            href="/subscribe"
+            className="hover:text-primary transition-colors"
+          >
+            Subscribe
+          </a>
         </div>
       </nav>
     </header>
