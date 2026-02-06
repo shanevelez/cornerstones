@@ -7,6 +7,8 @@ import Login from './pages/Login.jsx'; // we’ll add more later (like Admin)
 import Admin from './pages/Admin.jsx';
 import LocalRecs from "./pages/LocalRecs";
 import CancelBooking from './pages/CancelBooking';
+import Subscribe from './pages/Subscribe';
+import Unsubscribe from './pages/Unsubscribe';
 
 
 
@@ -19,6 +21,8 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin" element={<Admin />} />
         <Route path="/cancel/:token" element={<CancelBooking />} />
        <Route path="/local-recs" element={<LocalRecs />} />
+       <Route path="/subscribe" element={<Subscribe />} />
+       <Route path="/unsubscribe" element={<Unsubscribe />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
