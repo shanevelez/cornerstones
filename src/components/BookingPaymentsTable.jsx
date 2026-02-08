@@ -6,9 +6,51 @@ function BookingPaymentsTable({ userRole }) {
   const [loading, setLoading] = useState(true);
   const [sortDir, setSortDir] = useState('asc');
   const [updatingId, setUpdatingId] = useState(null);
-const [paidFilter, setPaidFilter] = useState('unpaid');
+  const [paidFilter, setPaidFilter] = useState('unpaid');
 
   const canEdit = ['Admin', 'Payment Manager'].includes(userRole);
+
+  // 💷 Pricing Logic Helper
+  const calculateAmountDue = (booking) => {
+    if (!booking) return 0;
+
+    const {
+      check_in,
+      check_out,
+      adults = 0,
+      grandchildren_over21 = 0,
+      children_16plus = 0,
+      students = 0,
+      family_member,
+    } = booking;
+
+    // 1. Calculate Nights
+    const start = new Date(check_in);
+    const end = new Date(check_out);
+    const diffTime = Math.abs(end - start);
+    const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    
+    // Safety check for weird dates
+    if (nights <= 0) return 0;
+
+    let nightlyTotal = 0;
+
+    // 2. Apply Rates based on Family Status
+    if (family_member) {
+      // Family Rates
+      nightlyTotal += (adults * 32);
+      nightlyTotal += (grandchildren_over21 * 25);
+      nightlyTotal += ((children_16plus + students) * 12);
+    } else {
+      // Regular Rates
+      // Note: "Grandchildren over 21" are technically adults (21+) so they get the £40 rate if not family
+      nightlyTotal += ((adults + grandchildren_over21) * 40);
+      nightlyTotal += ((children_16plus + students) * 12);
+    }
+
+    // 3. Final Sum (Nights + £40 Cleaning fee)
+    return (nightlyTotal * nights) + 40;
+  };
 
   const fetchPayments = async () => {
     setLoading(true);
@@ -23,13 +65,16 @@ const [paidFilter, setPaidFilter] = useState('unpaid');
           guest_name,
           check_in,
           check_out,
-          status
+          status,
+          adults,
+          grandchildren_over21,
+          children_16plus,
+          students,
+          family_member
         )
       `)
       .eq('is_paid', paidFilter === 'paid')
-      // Filter the joined 'bookings' table for specific statuses
-      // Note: Check if your DB uses 'pending' (lowercase) or 'Pending' (capitalized)
-      .in('bookings.status', ['pending', 'approved', 'Pending', 'Approved']); 
+      .in('bookings.status', ['pending', 'approved', 'Pending', 'Approved']); // Use !inner logic
 
     if (error) {
       console.error('booking_payments error:', error);
@@ -49,10 +94,9 @@ const [paidFilter, setPaidFilter] = useState('unpaid');
     setLoading(false);
   };
 
-useEffect(() => {
-  fetchPayments();
-}, [sortDir, paidFilter]);
-
+  useEffect(() => {
+    fetchPayments();
+  }, [sortDir, paidFilter]);
 
   const togglePaid = async (row) => {
     if (!canEdit) return;
@@ -70,10 +114,9 @@ useEffect(() => {
     if (error) {
       console.error('Failed to update payment status', error);
       alert('Failed to update payment status.');
-} else {
-  fetchPayments();
-}
-
+    } else {
+      fetchPayments();
+    }
 
     setUpdatingId(null);
   };
@@ -82,104 +125,114 @@ useEffect(() => {
     return <p className="text-gray-600">Loading payment status…</p>;
   }
 
-  
-
   return (
-  <>
-    <div className="mb-6">
-  <div className="hidden sm:flex gap-3">
-    {['unpaid', 'paid'].map((s) => (
-      <button
-        key={s}
-        onClick={() => setPaidFilter(s)}
-        className={`px-4 py-2 rounded-md border ${
-          paidFilter === s
-            ? 'bg-primary text-white'
-            : 'bg-white text-gray-700 hover:bg-gray-100'
-        }`}
-      >
-        {s.charAt(0).toUpperCase() + s.slice(1)}
-      </button>
-    ))}
-  </div>
-
-  {/* Mobile dropdown */}
-  <div className="sm:hidden">
-    <select
-      value={paidFilter}
-      onChange={(e) => setPaidFilter(e.target.value)}
-      className="w-full border rounded-md p-2 bg-white text-gray-700"
-    >
-      <option value="unpaid">Unpaid</option>
-      <option value="paid">Paid</option>
-    </select>
-  </div>
-</div>
-
-	<div className="overflow-x-auto">
-      <table className="min-w-full text-left border border-gray-200">
-        <thead className="bg-gray-100 text-gray-700">
-          <tr>
-            <th className="px-4 py-2 border-b">Booking Ref</th>
-            <th className="px-4 py-2 border-b">Guest</th>
-            <th
-              className="px-4 py-2 border-b cursor-pointer select-none"
-              onClick={() =>
-                setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-              }
+    <>
+      <div className="mb-6">
+        <div className="hidden sm:flex gap-3">
+          {['unpaid', 'paid'].map((s) => (
+            <button
+              key={s}
+              onClick={() => setPaidFilter(s)}
+              className={`px-4 py-2 rounded-md border ${
+                paidFilter === s
+                  ? 'bg-primary text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
             >
-              Check-in {sortDir === 'asc' ? '↑' : '↓'}
-            </th>
-            <th className="px-4 py-2 border-b">Check-out</th>
-            <th className="px-4 py-2 border-b text-center">Paid</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.booking_id} className="hover:bg-yellow-50">
-              <td className="px-4 py-2 border-b font-mono">
-                {r.booking_ref}
-              </td>
-              <td className="px-4 py-2 border-b">
-                {r.bookings?.guest_name}
-              </td>
-              <td className="px-4 py-2 border-b">
-                {new Date(r.bookings.check_in).toLocaleDateString('en-GB')}
-              </td>
-              <td className="px-4 py-2 border-b">
-                {new Date(r.bookings.check_out).toLocaleDateString('en-GB')}
-              </td>
-              <td className="px-4 py-2 border-b text-center">
-                {canEdit ? (
-                  <button
-                    disabled={updatingId === r.booking_id}
-                    onClick={() => togglePaid(r)}
-                    className={`px-3 py-1 rounded-md text-sm font-medium ${
-                      r.is_paid
-                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                        : 'bg-red-100 text-red-700 hover:bg-red-200'
-                    }`}
-                  >
-                    {r.is_paid ? 'Paid' : 'Unpaid'}
-                  </button>
-                ) : (
-                  <span
-                    className={`px-3 py-1 rounded-md text-sm font-medium ${
-                      r.is_paid
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}
-                  >
-                    {r.is_paid ? 'Paid' : 'Unpaid'}
-                  </span>
-                )}
-              </td>
-            </tr>
+              {s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
           ))}
-        </tbody>
-      </table>
-    </div>
-  </>
+        </div>
+
+        {/* Mobile dropdown */}
+        <div className="sm:hidden">
+          <select
+            value={paidFilter}
+            onChange={(e) => setPaidFilter(e.target.value)}
+            className="w-full border rounded-md p-2 bg-white text-gray-700"
+          >
+            <option value="unpaid">Unpaid</option>
+            <option value="paid">Paid</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-left border border-gray-200">
+          <thead className="bg-gray-100 text-gray-700">
+            <tr>
+              <th className="px-4 py-2 border-b">Booking Ref</th>
+              <th className="px-4 py-2 border-b">Guest</th>
+              <th
+                className="px-4 py-2 border-b cursor-pointer select-none"
+                onClick={() =>
+                  setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+                }
+              >
+                Check-in {sortDir === 'asc' ? '↑' : '↓'}
+              </th>
+              <th className="px-4 py-2 border-b">Check-out</th>
+              <th className="px-4 py-2 border-b text-right">Amount</th> {/* NEW COLUMN */}
+              <th className="px-4 py-2 border-b text-center">Paid</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.booking_id} className="hover:bg-yellow-50">
+                <td className="px-4 py-2 border-b font-mono">
+                  {r.booking_ref}
+                </td>
+                <td className="px-4 py-2 border-b">
+                  {r.bookings?.guest_name}
+                  {r.bookings?.family_member && (
+                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                      Family
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-2 border-b">
+                  {new Date(r.bookings.check_in).toLocaleDateString('en-GB')}
+                </td>
+                <td className="px-4 py-2 border-b">
+                  {new Date(r.bookings.check_out).toLocaleDateString('en-GB')}
+                </td>
+                
+                {/* NEW AMOUNT CELL */}
+                <td className="px-4 py-2 border-b text-right font-medium">
+                  £{calculateAmountDue(r.bookings).toLocaleString()}
+                </td>
+
+                <td className="px-4 py-2 border-b text-center">
+                  {canEdit ? (
+                    <button
+                      disabled={updatingId === r.booking_id}
+                      onClick={() => togglePaid(r)}
+                      className={`px-3 py-1 rounded-md text-sm font-medium ${
+                        r.is_paid
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                          : 'bg-red-100 text-red-700 hover:bg-red-200'
+                      }`}
+                    >
+                      {r.is_paid ? 'Paid' : 'Unpaid'}
+                    </button>
+                  ) : (
+                    <span
+                      className={`px-3 py-1 rounded-md text-sm font-medium ${
+                        r.is_paid
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {r.is_paid ? 'Paid' : 'Unpaid'}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
