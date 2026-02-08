@@ -15,35 +15,36 @@ const [paidFilter, setPaidFilter] = useState('unpaid');
 
     const { data, error } = await supabase
       .from('booking_payments')
-.select(`
-  booking_id,
-  booking_ref,
-  is_paid,
-  bookings (
-    guest_name,
-    check_in,
-    check_out
-  )
-`)
-.eq('is_paid', paidFilter === 'paid')
+      .select(`
+        booking_id,
+        booking_ref,
+        is_paid,
+        bookings!inner (
+          guest_name,
+          check_in,
+          check_out,
+          status
+        )
+      `)
+      .eq('is_paid', paidFilter === 'paid')
+      // Filter the joined 'bookings' table for specific statuses
+      // Note: Check if your DB uses 'pending' (lowercase) or 'Pending' (capitalized)
+      .in('bookings.status', ['pending', 'approved', 'Pending', 'Approved']); 
 
+    if (error) {
+      console.error('booking_payments error:', error);
+      setRows([]);
+    } else {
+      const sorted = [...(data || [])].sort((a, b) => {
+        const aDate = new Date(a.bookings.check_in);
+        const bDate = new Date(b.bookings.check_in);
+        return sortDir === 'asc'
+          ? aDate - bDate
+          : bDate - aDate;
+      });
 
-
-if (error) {
-  console.error('booking_payments error:', error);
-  setRows([]);
-} else {
-  const sorted = [...(data || [])].sort((a, b) => {
-    const aDate = new Date(a.bookings.check_in);
-    const bDate = new Date(b.bookings.check_in);
-    return sortDir === 'asc'
-      ? aDate - bDate
-      : bDate - aDate;
-  });
-
-  setRows(sorted);
-}
-
+      setRows(sorted);
+    }
 
     setLoading(false);
   };
