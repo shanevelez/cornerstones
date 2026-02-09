@@ -7,10 +7,13 @@ function BookingPaymentsTable({ userRole }) {
   const [sortDir, setSortDir] = useState('asc');
   const [updatingId, setUpdatingId] = useState(null);
   const [paidFilter, setPaidFilter] = useState('unpaid');
+  
+  // NEW: State for the modal
+  const [selectedBooking, setSelectedBooking] = useState(null);
 
   const canEdit = ['Admin', 'Payment Manager'].includes(userRole);
 
-  // 💷 Pricing Logic Helper
+  // 💷 Pricing Logic Helper (KEPT EXACTLY AS IS FOR TABLE)
   const calculateAmountDue = (booking) => {
     if (!booking) return 0;
 
@@ -50,6 +53,35 @@ function BookingPaymentsTable({ userRole }) {
 
     // 3. Final Sum (Nights + £40 Cleaning fee)
     return (nightlyTotal * nights) + 40;
+  };
+
+  // NEW: Helper specifically for generating the modal line items
+  const getBreakdownData = (booking) => {
+    if (!booking) return null;
+    const { check_in, check_out, adults=0, grandchildren_over21=0, children_16plus=0, students=0, family_member } = booking;
+    
+    const start = new Date(check_in);
+    const end = new Date(check_out);
+    const diffTime = Math.abs(end - start);
+    const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    if (nights <= 0) return null;
+
+    const lines = [];
+
+    if (family_member) {
+       if (adults > 0) lines.push({ label: 'Adults (Family)', count: adults, rate: 32, total: adults * 32 * nights });
+       if (grandchildren_over21 > 0) lines.push({ label: 'Grandchildren 21+ (Family)', count: grandchildren_over21, rate: 25, total: grandchildren_over21 * 25 * nights });
+       const young = children_16plus + students;
+       if (young > 0) lines.push({ label: 'Children 16+ / Students (Family)', count: young, rate: 12, total: young * 12 * nights });
+    } else {
+       const bigAdults = adults + grandchildren_over21;
+       if (bigAdults > 0) lines.push({ label: 'Adults & GC 21+', count: bigAdults, rate: 40, total: bigAdults * 40 * nights });
+       const young = children_16plus + students;
+       if (young > 0) lines.push({ label: 'Children 16+ / Students', count: young, rate: 12, total: young * 12 * nights });
+    }
+
+    const subTotal = lines.reduce((acc, curr) => acc + curr.total, 0);
+    return { lines, nights, subTotal, total: subTotal + 40 };
   };
 
   const fetchPayments = async () => {
@@ -125,8 +157,56 @@ function BookingPaymentsTable({ userRole }) {
     return <p className="text-gray-600">Loading payment status…</p>;
   }
 
+  // Calculate modal data if a booking is selected
+  const breakdownData = selectedBooking ? getBreakdownData(selectedBooking.bookings) : null;
+
   return (
     <>
+      {/* NEW: COST BREAKDOWN MODAL */}
+      {selectedBooking && breakdownData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedBooking(null)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative" onClick={(e) => e.stopPropagation()}>
+                <button 
+                    onClick={() => setSelectedBooking(null)}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-xl"
+                >
+                    &times;
+                </button>
+                
+                <h3 className="text-lg font-bold mb-1">Cost Breakdown</h3>
+                <p className="text-sm text-gray-500 mb-4">Ref: {selectedBooking.booking_ref} • {breakdownData.nights} Nights</p>
+
+                <div className="space-y-2 text-sm">
+                    {breakdownData.lines.map((line, idx) => (
+                        <div key={idx} className="flex justify-between border-b border-gray-100 pb-1">
+                            <span>{line.label} <span className="text-gray-400 text-xs">({line.count} × £{line.rate})</span></span>
+                            <span className="font-mono">£{line.total}</span>
+                        </div>
+                    ))}
+                    
+                    <div className="flex justify-between border-b border-gray-100 pb-1 pt-2">
+                        <span>Cleaning Fee</span>
+                        <span className="font-mono">£40</span>
+                    </div>
+
+                    <div className="flex justify-between pt-3 font-bold text-lg">
+                        <span>Total</span>
+                        <span>£{breakdownData.total}</span>
+                    </div>
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                    <button 
+                        onClick={() => setSelectedBooking(null)}
+                        className="bg-gray-100 text-gray-700 px-4 py-2 rounded hover:bg-gray-200"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
       <div className="mb-6">
         <div className="hidden sm:flex gap-3">
           {['unpaid', 'paid'].map((s) => (
@@ -144,7 +224,7 @@ function BookingPaymentsTable({ userRole }) {
           ))}
         </div>
 
-        {/* Mobile dropdown */}
+        {/* Mobile dropdown - KEPT */}
         <div className="sm:hidden">
           <select
             value={paidFilter}
@@ -178,7 +258,11 @@ function BookingPaymentsTable({ userRole }) {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.booking_id} className="hover:bg-yellow-50">
+              <tr 
+                key={r.booking_id} 
+                className="hover:bg-yellow-50 cursor-pointer" // Added cursor-pointer
+                onClick={() => setSelectedBooking(r)} // Added Click Handler
+            >
                 <td className="px-4 py-2 border-b font-mono">
                   {r.booking_ref}
                 </td>
@@ -206,7 +290,10 @@ function BookingPaymentsTable({ userRole }) {
                   {canEdit ? (
                     <button
                       disabled={updatingId === r.booking_id}
-                      onClick={() => togglePaid(r)}
+                      onClick={(e) => {
+                          e.stopPropagation(); // Added Stop Propagation
+                          togglePaid(r);
+                      }}
                       className={`px-3 py-1 rounded-md text-sm font-medium ${
                         r.is_paid
                           ? 'bg-green-100 text-green-700 hover:bg-green-200'
