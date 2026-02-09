@@ -335,8 +335,8 @@ export default async function handler(req, res) {
                    <div style="font-size:10px; font-weight:bold; color:#999; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#999; margin-bottom:4px;">${day.dateShort}</div>
                    
-                   <div style="height:50px; line-height:50px;">
-                     <img src="${day.icon}" style="display:inline-block; vertical-align:middle; width:50%; max-width:22px; height:auto; filter:grayscale(100%); opacity:0.5;" />
+                   <div style="padding: 5px 0;">
+                     <img src="${day.icon}" style="display:block; margin:0 auto; width:50%; max-width:22px; height:auto; filter:grayscale(100%); opacity:0.5;" />
                    </div>
 
                    <div style="font-size:9px; font-weight:bold; color:#fff; background:#9ca3af; padding:2px 4px; border-radius:3px; display:inline-block; margin-top:2px;">BOOKED</div>
@@ -349,8 +349,8 @@ export default async function handler(req, res) {
                    <div style="font-size:10px; font-weight:bold; color:#b45309; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#b45309; margin-bottom:4px;">${day.dateShort}</div>
                    
-                   <div style="height:50px; line-height:50px;">
-                      <img src="${day.icon}" style="display:inline-block; vertical-align:middle; width:60%; max-width:42px; height:auto;" />
+                   <div style="padding: 5px 0;">
+                      <img src="${day.icon}" style="display:block; margin:0 auto; width:60%; max-width:42px; height:auto;" />
                    </div>
 
                    <div style="font-size:14px; font-weight:bold; color:#b45309; margin-top:2px;">${day.temp}°</div>
@@ -362,8 +362,8 @@ export default async function handler(req, res) {
                    <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#999; margin-bottom:4px;">${day.dateShort}</div>
                    
-                   <div style="height:50px; line-height:50px;">
-                      <img src="${day.icon}" style="display:inline-block; vertical-align:middle; width:60%; max-width:42px; height:auto;" />
+                   <div style="padding: 5px 0;">
+                      <img src="${day.icon}" style="display:block; margin:0 auto; width:60%; max-width:42px; height:auto;" />
                    </div>
 
                    <div style="font-size:14px; font-weight:bold; color:#0f2b4c; margin-top:2px;">${day.temp}°</div>
