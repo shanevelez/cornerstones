@@ -326,7 +326,7 @@ export default async function handler(req, res) {
 
         if (subscribers && subscribers.length > 0) {
           
-         // Generate Grid HTML
+// Generate Grid HTML
           const weatherGridHtml = forecast.map(day => {
             // A: BOOKED
             if (day.isBooked) {
@@ -335,7 +335,7 @@ export default async function handler(req, res) {
                    <div style="font-size:10px; font-weight:bold; color:#999; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#999; margin-bottom:4px;">${day.dateShort}</div>
                    <div style="height:50px; display:flex; align-items:center; justify-content:center; position:relative;">
-                     <img src="${day.icon}" width="32" style="display:block; margin:0 auto; filter:grayscale(100%); opacity:0.5; max-width: 100%; height: auto;" />
+                     <img src="${day.icon}" width="32" style="display:block; margin:0 auto; filter:grayscale(100%); opacity:0.5; width: 80%; max-width: 32px; height: auto;" />
                    </div>
                    <div style="font-size:9px; font-weight:bold; color:#fff; background:#9ca3af; padding:2px 4px; border-radius:3px; display:inline-block; margin-top:2px;">BOOKED</div>
                 </td>`;
@@ -347,7 +347,7 @@ export default async function handler(req, res) {
                    <div style="font-size:10px; font-weight:bold; color:#b45309; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#b45309; margin-bottom:4px;">${day.dateShort}</div>
                    <div style="height:50px; display:flex; align-items:center; justify-content:center;">
-                      <img src="${day.icon}" width="42" style="display:block; margin:0 auto; max-width: 100%; height: auto;" />
+                      <img src="${day.icon}" width="42" style="display:block; margin:0 auto; width: 85%; max-width: 42px; height: auto;" />
                    </div>
                    <div style="font-size:14px; font-weight:bold; color:#b45309; margin-top:2px;">${day.temp}°</div>
                 </td>`;
@@ -358,7 +358,7 @@ export default async function handler(req, res) {
                    <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#999; margin-bottom:4px;">${day.dateShort}</div>
                    <div style="height:50px; display:flex; align-items:center; justify-content:center;">
-                      <img src="${day.icon}" width="42" style="display:block; margin:0 auto; max-width: 100%; height: auto;" />
+                      <img src="${day.icon}" width="42" style="display:block; margin:0 auto; width: 85%; max-width: 42px; height: auto;" />
                    </div>
                    <div style="font-size:14px; font-weight:bold; color:#0f2b4c; margin-top:2px;">${day.temp}°</div>
                 </td>`;
