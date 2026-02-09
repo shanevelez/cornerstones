@@ -328,38 +328,44 @@ export default async function handler(req, res) {
           
 // Generate Grid HTML
           const weatherGridHtml = forecast.map(day => {
-            // A: BOOKED (Reduced to 50% width on mobile, capped at 22px)
+            // A: BOOKED
             if (day.isBooked) {
               return `
                 <td style="width:14.2%; text-align:center; vertical-align:bottom; background-color:#f3f4f6; border-radius:4px; padding:8px 0; opacity:0.6;">
                    <div style="font-size:10px; font-weight:bold; color:#999; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#999; margin-bottom:4px;">${day.dateShort}</div>
-                   <div style="height:50px; display:flex; align-items:center; justify-content:center; position:relative;">
-                     <img src="${day.icon}" width="32" style="display:block; margin:0 auto; filter:grayscale(100%); opacity:0.5; width: 50%; max-width: 22px; height: auto;" />
+                   
+                   <div style="height:50px; line-height:50px;">
+                     <img src="${day.icon}" style="display:inline-block; vertical-align:middle; width:50%; max-width:22px; height:auto; filter:grayscale(100%); opacity:0.5;" />
                    </div>
+
                    <div style="font-size:9px; font-weight:bold; color:#fff; background:#9ca3af; padding:2px 4px; border-radius:3px; display:inline-block; margin-top:2px;">BOOKED</div>
                 </td>`;
             }
-            // B: SUNNY & FREE (Reduced to 60% width on mobile, capped at 42px)
+            // B: SUNNY & FREE
             if (day.isSunny) {
               return `
                 <td style="width:14.2%; text-align:center; vertical-align:bottom; background-color:#fffbeb; border-radius:6px; border:2px solid #fcd34d; padding:8px 0;">
                    <div style="font-size:10px; font-weight:bold; color:#b45309; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#b45309; margin-bottom:4px;">${day.dateShort}</div>
-                   <div style="height:50px; display:flex; align-items:center; justify-content:center;">
-                      <img src="${day.icon}" width="42" style="display:block; margin:0 auto; width: 60%; max-width: 42px; height: auto;" />
+                   
+                   <div style="height:50px; line-height:50px;">
+                      <img src="${day.icon}" style="display:inline-block; vertical-align:middle; width:60%; max-width:42px; height:auto;" />
                    </div>
+
                    <div style="font-size:14px; font-weight:bold; color:#b45309; margin-top:2px;">${day.temp}°</div>
                 </td>`;
             }
-            // C: DULL & FREE (Reduced to 60% width on mobile, capped at 42px)
+            // C: DULL & FREE
             return `
                 <td style="width:14.2%; text-align:center; vertical-align:bottom; border:1px solid #eee; border-radius:4px; padding:8px 0;">
                    <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#999; margin-bottom:4px;">${day.dateShort}</div>
-                   <div style="height:50px; display:flex; align-items:center; justify-content:center;">
-                      <img src="${day.icon}" width="42" style="display:block; margin:0 auto; width: 60%; max-width: 42px; height: auto;" />
+                   
+                   <div style="height:50px; line-height:50px;">
+                      <img src="${day.icon}" style="display:inline-block; vertical-align:middle; width:60%; max-width:42px; height:auto;" />
                    </div>
+
                    <div style="font-size:14px; font-weight:bold; color:#0f2b4c; margin-top:2px;">${day.temp}°</div>
                 </td>`;
           }).join('');
