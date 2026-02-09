@@ -26,6 +26,7 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const {
+        seniors,
         guest_name,
         guest_email,
         check_in,
@@ -36,7 +37,10 @@ export default async function handler(req, res) {
         students,
         family_member
       } = req.body;
-
+      
+if (seniors) {
+        return res.status(200).json({ success: true });
+      }
       if (!guest_name || !guest_email || !check_in || !check_out) {
         return res.status(400).json({ error: 'Missing required fields.' });
       }
