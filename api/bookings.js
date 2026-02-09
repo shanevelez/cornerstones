@@ -1,10 +1,26 @@
 import { Pool } from 'pg';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+// Initialize pool outside to allow connection reuse across warm invocations
+let pool;
+
+function getPool() {
+  if (!pool) {
+    const certPath = path.join(process.cwd(), 'certs', 'prod-ca-2021.crt');
+    const caCert = fs.readFileSync(certPath).toString();
+
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: true, // Verification is now ENABLED
+        ca: caCert,               // Use the certificate you just downloaded
+      },
+    });
+  }
+  return pool;
+}
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
@@ -57,7 +73,8 @@ export default async function handler(req, res) {
         cancelToken
       ];
 
-      const { rows } = await pool.query(query, values);
+      const db = getPool();
+      const { rows } = await db.query(query, values);
       const newBooking = rows[0];
 
       try {
@@ -72,12 +89,12 @@ export default async function handler(req, res) {
           })
         });
       } catch (emailErr) {
-        console.error('Email notification failed:', emailErr);
+        console.error('Email notification failed');
       }
 
       return res.status(200).json({ success: true, booking: newBooking });
     } catch (error) {
-      console.error('Insert error:', error);
+      console.error('Insert error');
       return res.status(500).json({ error: 'Failed to save booking.' });
     }
   }
