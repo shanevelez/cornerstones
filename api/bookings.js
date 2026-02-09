@@ -2,8 +2,15 @@ import { Pool } from 'pg';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
 
-// Initialize pool outside to allow connection reuse across warm invocations
+// Initialize Rate Limiter using Upstash Redis
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(7, '24 h'),
+});
+
 let pool;
 
 function getPool() {
@@ -14,8 +21,8 @@ function getPool() {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: {
-        rejectUnauthorized: true, // Verification is now ENABLED
-        ca: caCert,               // Use the certificate you just downloaded
+        rejectUnauthorized: true,
+        ca: caCert,
       },
     });
   }
@@ -24,6 +31,14 @@ function getPool() {
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
+    // 1. Rate Limit Check by IP
+    const ip = req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || '127.0.0.1';
+    const { success } = await ratelimit.limit(ip);
+
+    if (!success) {
+      return res.status(429).json({ error: 'Too many requests. Try again tomorrow.' });
+    }
+
     try {
       const {
         seniors,
@@ -38,7 +53,7 @@ export default async function handler(req, res) {
         family_member
       } = req.body;
       
-if (seniors) {
+      if (seniors) {
         return res.status(200).json({ success: true });
       }
       if (!guest_name || !guest_email || !check_in || !check_out) {
