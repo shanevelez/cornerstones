@@ -13,7 +13,7 @@ function BookingPaymentsTable({ userRole }) {
 
   const canEdit = ['Admin', 'Payment Manager'].includes(userRole);
 
-  // 💷 Pricing Logic Helper (Table View)
+  // 💷 Pricing Logic Helper (Table View - Returns Total Only)
   const calculateAmountDue = (booking) => {
     if (!booking) return 0;
 
@@ -48,7 +48,7 @@ function BookingPaymentsTable({ userRole }) {
     return (nightlyTotal * nights) + 40;
   };
 
-  // 💷 Modal Breakdown Helper
+  // 💷 Modal Breakdown Helper (Itemized List)
   const getBreakdownData = (booking) => {
     if (!booking) return null;
     const { check_in, check_out, adults=0, grandchildren_over21=0, children_16plus=0, students=0, family_member } = booking;
@@ -62,13 +62,21 @@ function BookingPaymentsTable({ userRole }) {
     const lines = [];
 
     if (family_member) {
+       // --- FAMILY RATES ---
        if (adults > 0) lines.push({ label: 'Adults (Family)', count: adults, rate: 32, total: adults * 32 * nights });
        if (grandchildren_over21 > 0) lines.push({ label: 'Grandchildren 21+ (Family)', count: grandchildren_over21, rate: 25, total: grandchildren_over21 * 25 * nights });
+       
        const young = children_16plus + students;
        if (young > 0) lines.push({ label: 'Children 16+ / Students (Family)', count: young, rate: 12, total: young * 12 * nights });
     } else {
-       const bigAdults = adults + grandchildren_over21;
-       if (bigAdults > 0) lines.push({ label: 'Adults & GC 21+', count: bigAdults, rate: 40, total: bigAdults * 40 * nights });
+       // --- STANDARD RATES ---
+       // SEPARATED: Adults
+       if (adults > 0) lines.push({ label: 'Adults', count: adults, rate: 40, total: adults * 40 * nights });
+       
+       // SEPARATED: Grandchildren 21+
+       if (grandchildren_over21 > 0) lines.push({ label: 'Grandchildren 21+', count: grandchildren_over21, rate: 40, total: grandchildren_over21 * 40 * nights });
+
+       // Combined Young Adults (Since they are same category/price)
        const young = children_16plus + students;
        if (young > 0) lines.push({ label: 'Children 16+ / Students', count: young, rate: 12, total: young * 12 * nights });
     }
@@ -143,12 +151,12 @@ function BookingPaymentsTable({ userRole }) {
 
   return (
     <>
-      {/* --- CONSISTENT MODAL DESIGN --- */}
+      {/* --- MODAL --- */}
       {selectedBooking && breakdownData && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedBooking(null)}>
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-xl overflow-y-auto max-h-[90vh] border border-gray-200 relative" onClick={(e) => e.stopPropagation()}>
             
-            {/* Header matches BookingsTable */}
+            {/* Header */}
             <div className="flex justify-between items-center bg-primary text-white px-6 py-4">
               <h4 className="text-xl font-heading">Cost Breakdown</h4>
               <button onClick={() => setSelectedBooking(null)} className="text-white text-2xl">×</button>
@@ -162,7 +170,7 @@ function BookingPaymentsTable({ userRole }) {
                  <span className="text-gray-500 font-normal font-mono text-base">{selectedBooking.booking_ref}</span>
               </div>
 
-              {/* Date Box (Visual Match to BookingsTable) */}
+              {/* Date Box */}
               <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
                  <div className="space-y-2">
                     <div className="flex justify-between items-center">
