@@ -99,32 +99,38 @@ export default async function handler(req, res) {
       if (arrivingBookings && arrivingBookings.length > 0) {
         const guestPromises = arrivingBookings.map(booking => {
           
-          // 1. Calculate Booking Number
-          const checkInYear = new Date(booking.check_in).getFullYear();
+          // 1. Calculate Nights & Booking Number
+          const start = new Date(booking.check_in);
+          const end = new Date(booking.check_out);
+          const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+          const checkInYear = start.getFullYear();
           const bookingNumber = `${checkInYear}${String(booking.id).padStart(2, '0')}`;
 
-          // 2. Determine Pricing Logic (Family vs Regular)
+          // 2. Pricing Logic (Family vs Regular)
           const isFamily = booking.family_member === true;
-          const pricingHtml = isFamily
-            ? `
-              <ul style="margin-left:20px;">
-                <li>Adults (21 +) – £32 per person per night</li>
-                <li>Grandchildren over 21 and in paid employment – £25 per person per night</li>
-                <li>Young people 16 + / students – £12 per person per night</li>
-                <li>Children under 16 – No charge</li>
-                <li>Cleaning charge – £40 per booking</li>
-              </ul>
-            `
-            : `
-              <ul style="margin-left:20px;">
-                <li>Adults (21 +) – £40 per person per night</li>
-                <li>Young people 16 + / students – £12 per person per night</li>
-                <li>Children under 16 – No charge</li>
-                <li>Cleaning charge – £40 per booking</li>
-              </ul>
-            `;
+          const adultRate = isFamily ? 32 : 40;
+          const grandChildRate = isFamily ? 25 : 40;
+          const youngPersonRate = 12;
+          const CLEANING_FEE = 40;
 
-          // 3. Build HTML
+          // 3. The Math
+          const adultTotal = (booking.adults || 0) * adultRate * nights;
+          const grandChildTotal = (booking.grandchildren_over21 || 0) * grandChildRate * nights;
+          const youngTotal = ((booking.children_16plus || 0) + (booking.students || 0)) * youngPersonRate * nights;
+          const finalBalance = adultTotal + grandChildTotal + youngTotal + CLEANING_FEE;
+
+          // 4. Create the Pricing Breakdown HTML
+          const pricingHtml = `
+            <ul style="margin-left:20px; color:#333;">
+              <li>Adults (21+): ${booking.adults || 0} x £${adultRate} per night</li>
+              ${booking.grandchildren_over21 > 0 ? `<li>Grandchildren (21+): ${booking.grandchildren_over21} x £${grandChildRate} per night</li>` : ''}
+              ${((booking.children_16plus || 0) + (booking.students || 0)) > 0 ? `<li>16+ / Students: ${((booking.children_16plus || 0) + (booking.students || 0))} x £${youngPersonRate} per night</li>` : ''}
+              <li>Cleaning charge: £${CLEANING_FEE}</li>
+              <li style="margin-top:10px; list-style:none;"><strong>Total for ${nights} nights: £${finalBalance}</strong></li>
+            </ul>
+          `;
+
+          // 5. Build HTML
           const html = `
           <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9f9f9;padding:32px;">
             <table style="max-width:640px;margin:auto;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #eee;">
@@ -154,10 +160,19 @@ export default async function handler(req, res) {
                       <td style="padding:8px;border:1px solid #ddd;"><strong>Depart</strong></td>
                       <td style="padding:8px;border:1px solid #ddd;">${new Date(booking.check_out).toLocaleDateString('en-GB')}</td>
                     </tr>
+                    <tr>
+                      <td style="padding:8px;border:1px solid #ddd;"><strong>Total Balance</strong></td>
+                      <td style="padding:8px;border:1px solid #ddd;"><strong>£${finalBalance}</strong></td>
+                    </tr>
                   </table>
 
                   <h3 style="color:#0f2b4c;margin-top:24px;">Your stay</h3>
                   ${pricingHtml}
+
+                  <p style="font-size:14px; color:#666; font-style:italic; margin-top:12px;">
+                    The total cost is calculated based on the number and type of guests you entered when making the initial booking. 
+                    If more or less people are coming, please add or subtract their costs to the calculation.
+                  </p>
 
                   <p style="margin-top:18px;">
                     If you haven't done so already, please ensure your balance is transferred before arrival:
@@ -168,7 +183,7 @@ export default async function handler(req, res) {
                     <p style="margin:0;"><strong>Account Name:</strong> M Wills</p>
                     <p style="margin:0;"><strong>Sort Code:</strong> 40-10-00</p>
                     <p style="margin:0;"><strong>Account No.:</strong> 11064789</p>
-                    <p style="margin:0;"><strong>Reference:</strong> Your booking number ${bookingNumber}</p>
+                    <p style="margin:0;"><strong>Reference:</strong> ${bookingNumber}</p>
                   </div>
 
                   <h3 style="color:#0f2b4c;margin-top:28px;">Arrival & Departure</h3>
@@ -215,7 +230,7 @@ export default async function handler(req, res) {
           return resend.emails.send({
             from: 'Cornerstones Booking <booking@cornerstonescrantock.com>',
             to: booking.guest_email,
-            subject: 'Your Cornerstones Holiday - One Week to Go!',
+            subject: `Your Cornerstones Holiday - £${finalBalance} Balance Reminder`,
             html: html,
           });
         });

@@ -28,31 +28,37 @@ export default async function handler(req, res) {
     if (error || !booking) throw new Error('Booking not found');
 
     const { guest_name, guest_email, check_in, check_out, id: booking_id, cancel_token } = booking;
-	
-const isFamily = booking.family_member === true;
+  
+    // ---- 2️⃣ Pricing & Calculation Logic ----
+    const start = new Date(check_in);
+    const end = new Date(check_out);
+    const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    
+    const isFamily = booking.family_member === true;
+    const adultRate = isFamily ? 32 : 40;
+    const grandChildRate = isFamily ? 25 : 40;
+    const youngPersonRate = 12;
+    const CLEANING_FEE = 40;
 
-const pricingHtml = isFamily
-  ? `
-    <ul style="margin-left:20px;">
-      <li>Adults (21 +) – £32 per person per night</li>
-      <li>Grandchildren over 21 and in paid employment – £25 per person per night</li>
-      <li>Young people 16 + / students – £12 per person per night</li>
-      <li>Children under 16 – No charge</li>
-      <li>Cleaning charge – £40 per booking</li>
-    </ul>
-  `
-  : `
-    <ul style="margin-left:20px;">
-      <li>Adults (21 +) – £40 per person per night</li>
-      <li>Young people 16 + / students – £12 per person per night</li>
-      <li>Children under 16 – No charge</li>
-      <li>Cleaning charge – £40 per booking</li>
-    </ul>
-  `;
-	
-const checkInYear = new Date(check_in).getFullYear();
-const bookingNumber = `${checkInYear}${String(booking_id).padStart(2, '0')}`;
-    // ---- 2️⃣ Build email HTML based on status ----
+    const adultTotal = (booking.adults || 0) * adultRate * nights;
+    const grandChildTotal = (booking.grandchildren_over21 || 0) * grandChildRate * nights;
+    const youngTotal = ((booking.children_16plus || 0) + (booking.students || 0)) * youngPersonRate * nights;
+    const finalBalance = adultTotal + grandChildTotal + youngTotal + CLEANING_FEE;
+
+    const checkInYear = new Date(check_in).getFullYear();
+    const bookingNumber = `${checkInYear}${String(booking_id).padStart(2, '0')}`;
+
+    const pricingHtml = `
+      <ul style="margin-left:20px; color:#333;">
+        <li>Adults (21+): ${booking.adults || 0} x £${adultRate} per night</li>
+        ${booking.grandchildren_over21 > 0 ? `<li>Grandchildren (21+): ${booking.grandchildren_over21} x £${grandChildRate} per night</li>` : ''}
+        ${((booking.children_16plus || 0) + (booking.students || 0)) > 0 ? `<li>16+ / Students: ${((booking.children_16plus || 0) + (booking.students || 0))} x £${youngPersonRate} per night</li>` : ''}
+        <li>Cleaning charge: £${CLEANING_FEE}</li>
+        <li style="margin-top:10px; list-style:none;"><strong>Total for ${nights} nights: £${finalBalance}</strong></li>
+      </ul>
+    `;
+
+    // ---- 3️⃣ Build email HTML based on status ----
     let subject = '';
     let html = '';
 
@@ -87,13 +93,22 @@ const bookingNumber = `${checkInYear}${String(booking_id).padStart(2, '0')}`;
                     <td style="padding:8px;border:1px solid #ddd;"><strong>Depart</strong></td>
                     <td style="padding:8px;border:1px solid #ddd;">${new Date(check_out).toLocaleDateString('en-GB')}</td>
                   </tr>
+                  <tr>
+                    <td style="padding:8px;border:1px solid #ddd;"><strong>Total Balance</strong></td>
+                    <td style="padding:8px;border:1px solid #ddd;"><strong>£${finalBalance}</strong></td>
+                  </tr>
                 </table>
 
                 <h3 style="color:#0f2b4c;margin-top:24px;">Your stay</h3>
-${pricingHtml}
+                ${pricingHtml}
+
+                <p style="font-size:14px; color:#666; font-style:italic; margin-top:12px;">
+                  The total cost is calculated based on the number and type of guests you entered when making the initial booking. 
+                  If more or less people are coming, please add or subtract their costs to the calculation.
+                </p>
 
                 <p style="margin-top:18px;">
-                  Please transfer payment (including the cleaning charge) at least two weeks before your visit:
+                  Please transfer payment at least two weeks before your visit:
                 </p>
 
                 <div style="background:#f2deac;padding:12px 16px;border-radius:6px;margin:12px 0;">
@@ -113,16 +128,13 @@ ${pricingHtml}
                   <li>Bring your own towels (bedding provided).</li>
                   <li>Bins collected early Monday — put out by 7 am at the bottom of the drive.</li>
                   <li>See the folder in the house for local info and parking guidance.</li>
-                  <li>EV charging points – Crantock Village Hall and Esso garage (Newquay Road).</li>
                 </ul>
-<h3 style="color:#0f2b4c;margin-top:28px;">Parking</h3>
+
+                <h3 style="color:#0f2b4c;margin-top:28px;">Parking</h3>
                 <p style="margin-top:24px;">              
-The drive at Cornerstones is spacious and parking locally in the summer is limited so we have a
-Just Park space adjacent to the wall at the top of the drive. Just Park is an app that allows users to book parking spaces on residential properties. We offer a very small part of our drive to other tourists in the area.<BR><BR> We appreciate that this may be an
-issue for some visitors particularly if bringing multiple vehicles. If you anticipate there being a
-problem or you have any other questions about the Just Park space, please contact Eve Ashe on
-07956 839713.
-Further details are available in the information folder in the house.
+                  The drive at Cornerstones is spacious and parking locally in the summer is limited. We have a
+                  Just Park space adjacent to the wall at the top of the drive. We appreciate that this may be an
+                  issue for some visitors; if you anticipate a problem, please contact Eve Ashe on 07956 839713.
                 </p>
 
                 <p style="margin-top:30px;">We hope you have a wonderful holiday.</p>
@@ -130,16 +142,12 @@ Further details are available in the information folder in the house.
                 
                 <p style="font-size:14px;color:#555;">Cornerstones Bookings · 07717 132433 · millam@doctors.org.uk</p>
                 <p style="margin-top:32px;">
-  If you need to cancel your booking, please click below:<br>
- <a href="https://www.cornerstonescrantock.com/cancel/${cancel_token}"
-     style="color:#0f2b4c;font-weight:600;text-decoration:underline;">
-     Cancel this booking
-  </a>
-</p>
-
-<p style="font-size:13px;color:#666;margin-top:8px;">
-  This link is unique to your booking — please do not share it.
-</p>
+                  If you need to cancel your booking, please click below:<br>
+                  <a href="https://www.cornerstonescrantock.com/cancel/${cancel_token}"
+                     style="color:#0f2b4c;font-weight:600;text-decoration:underline;">
+                     Cancel this booking
+                  </a>
+                </p>
               </td>
             </tr>
             <tr>
@@ -170,14 +178,9 @@ Further details are available in the information folder in the house.
                   was <span style="color:#c00;font-weight:bold;">not approved</span>.
                 </p>
 
-                ${
-                  comment
-                    ? `<p><strong>Reason from the approver:</strong><br>${comment}</p>`
-                    : ''
-                }
+                ${comment ? `<p><strong>Reason from the approver:</strong><br>${comment}</p>` : ''}
 
                 <p>You’re very welcome to check availability again at any time.</p>
-
                 <p style="margin-top:32px;">With best wishes,<br>Cornerstones Family</p>
               </td>
             </tr>
@@ -193,7 +196,7 @@ Further details are available in the information folder in the house.
       return res.status(400).json({ error: 'Invalid status value' });
     }
 
-    // ---- 3️⃣ Send via Resend ----
+    // ---- 4️⃣ Send via Resend ----
     await resend.emails.send({
       from: 'Cornerstones Booking <booking@cornerstonescrantock.com>',
       to: guest_email,
