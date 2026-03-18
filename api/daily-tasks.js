@@ -196,6 +196,7 @@ export default async function handler(req, res) {
                     <li>Bins collected early Monday — put out by 7 am at the bottom of the drive.</li>
                     <li>See the folder in the house for local info and parking guidance.</li>
                     <li>EV charging points – Crantock Village Hall and Esso garage (Newquay Road).</li>
+                    <li><a href="https://www.cornerstonescrantock.com/local-recs">Check here</a> for local recommendations made by our guests and please do submit your own!</li>
                   </ul>
 
                   <h3 style="color:#0f2b4c;margin-top:28px;">Parking</h3>
