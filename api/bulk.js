@@ -21,13 +21,13 @@ export default async function handler(req, res) {
       .eq('status', 'approved')
       .gte('check_in', '2026-01-01');
 
-    if (error || !bookings) throw new Error('Could not get bookings');
+    if (error || !bookings) throw new Error('Could not fetch bookings');
 
     let sentCount = 0;
 
-    // 2️⃣ Go through each booking and send the test email to you
+    // 2️⃣ Loop through each booking and send the email
     for (const booking of bookings) {
-      const { guest_name, check_in, check_out } = booking;
+      const { guest_name, guest_email, check_in, check_out } = booking;
 
       const adults = booking.adults || 0;
       const grandchildren = booking.grandchildren_over21 || 0;
@@ -95,25 +95,24 @@ export default async function handler(req, res) {
                 <p>If any of these details look incorrect, or if you need to make changes to your guest count, please email <a href="mailto:shanevelez@gmail.com" style="color:#0f2b4c;font-weight:bold;">shanevelez@gmail.com</a>.</p>
                 
                 <p style="margin-top:30px;">We look forward to hosting you.</p>
-                <p style="margin-bottom:0;">Richard and Louise</p>
+               
               </td>
             </tr>
           </table>
         </div>
       `;
 
-      // 🛑 DRY RUN: Sending everything to shanevelez@gmail.com
       await resend.emails.send({
         from: 'Cornerstones Booking <booking@cornerstonescrantock.com>',
-        to: 'shanevelez@gmail.com', 
-        subject: `DRY RUN: ${guest_name} - Cornerstones Booking Confirmed`,
+        to: guest_email,
+        subject: 'Update: Your Cornerstones Booking is Confirmed',
         html,
       });
 
       sentCount++;
     }
 
-    return res.status(200).json({ success: true, message: `Dry run complete! Sent ${sentCount} test emails to shanevelez@gmail.com.` });
+    return res.status(200).json({ success: true, message: `Sent ${sentCount} reassurance emails.` });
     
   } catch (err) {
     return res.status(500).json({ error: 'Failed to process bulk emails', details: err.message });
