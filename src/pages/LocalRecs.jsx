@@ -10,7 +10,13 @@ function LocalRecs() {
   const [category, setCategory] = useState("All");
   const [selected, setSelected] = useState(null);
   const [fullImage, setFullImage] = useState(null);
-
+const formatDate = (dateString) => {
+  if (!dateString) return null;
+  return new Date(dateString).toLocaleDateString('en-GB', {
+    month: 'short',
+    year: 'numeric'
+  });
+};
   const categories = ["All", "Dining", "Nature", "Activities", "Shops", "Hidden Gems"];
 
   // --- NEW: linkify helper (URLs -> <a>), preserves newlines and can stop propagation
@@ -274,11 +280,18 @@ function LocalRecs() {
                 </div>
               )}
 
-              {selected.submitted_by && (
-                <p className="text-xs text-gray-500">
-                  Submitted by {selected.submitted_by}
-                </p>
-              )}
+             {selected.submitted_by && (
+  <div className="flex justify-between items-center mt-4 border-t pt-4">
+    <p className="text-xs text-gray-500 italic">
+      Submitted by {selected.submitted_by}
+    </p>
+    {selected.created_at && (
+      <p className="text-xs text-gray-400">
+        {formatDate(selected.created_at)}
+      </p>
+    )}
+  </div>
+)}
             </div>
           </div>
         </div>
