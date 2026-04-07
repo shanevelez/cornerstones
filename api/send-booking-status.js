@@ -125,7 +125,7 @@ export default async function handler(req, res) {
 
                 <h3 style="color:#0f2b4c;margin-top:28px;">During your stay</h3>
                 <ul style="margin-left:20px;">
-                  <li>Bring your own towels (bedding provided).</li>
+                  ${!isFamily ? '<li>Bring your own towels (bedding provided).</li>' : ''}
                   <li>Bins collected early Monday — put out by 7 am at the bottom of the drive.</li>
                   <li>See the folder in the house for local info and parking guidance. </li>
                   <li>EV charging points – Crantock Village Hall and Esso garage (Newquay Road).</li>
