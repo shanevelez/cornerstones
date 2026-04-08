@@ -242,12 +242,18 @@ const formatDate = (dateString) => {
                 Category: {selected.category}
               </p>
 
-              {selected.address && (
-                <p className="flex items-center text-gray-700 mb-3 text-sm">
-                  <MapPinIcon className="w-4 h-4 text-primary mr-1" />
-                  {selected.address}
-                </p>
-              )}
+          {selected.address && (
+  <a
+    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selected.address)}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex items-center text-gray-700 mb-3 text-sm hover:text-blue-700 hover:underline transition-colors w-fit"
+    onClick={(e) => e.stopPropagation()}
+  >
+    <MapPinIcon className="w-4 h-4 text-primary mr-1 flex-shrink-0" />
+    {selected.address}
+  </a>
+)}
 
               <p className="text-gray-700 whitespace-pre-line mb-4">
                 {linkifyText(selected.description)}
