@@ -9,10 +9,14 @@ function CleanerTable() {
     const fetchBookings = async () => {
       setLoading(true);
 
+      // Get today's date in ISO format (YYYY-MM-DD)
+      const today = new Date().toISOString().split('T')[0];
+
       const { data, error } = await supabase
         .from('bookings')
         .select('id, guest_name, check_in, check_out')
         .eq('status', 'approved')
+        .gte('check_out', today) // 👈 Only show bookings checking out today or later
         .order('check_out', { ascending: true });
 
       if (error) {
@@ -47,7 +51,7 @@ function CleanerTable() {
         </thead>
         <tbody>
           {bookings.map((b) => (
-            <tr key={b.id}>
+            <tr key={b.id} className="hover:bg-gray-50">
               <td className="px-4 py-2 border-b">
                 {new Date(b.check_out).toLocaleDateString('en-GB')}
               </td>

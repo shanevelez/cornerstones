@@ -19,13 +19,13 @@ export default async function handler(req, res) {
     }
 
     // ---- 1️⃣ Fetch booking + guest details ----
-    const { data: booking, error } = await supabase
+    const { data: booking, error: bookingError } = await supabase
       .from('bookings')
       .select('*')
       .eq('id', bookingId)
       .single();
 
-    if (error || !booking) throw new Error('Booking not found');
+    if (bookingError || !booking) throw new Error('Booking not found');
 
     const { guest_name, guest_email, check_in, check_out, id: booking_id, cancel_token } = booking;
   
@@ -132,13 +132,6 @@ export default async function handler(req, res) {
                   <li><a href="https://www.cornerstonescrantock.com/local-recs">Check here</a> for local recommendations made by our guests and please do submit your own!</li>
                 </ul>
 
-                <h3 style="color:#0f2b4c;margin-top:28px;">Parking</h3>
-                <p style="margin-top:24px;">              
-                  The drive at Cornerstones is spacious and parking locally in the summer is limited. We have a
-                  Just Park space adjacent to the wall at the top of the drive. We appreciate that this may be an
-                  issue for some visitors; if you anticipate a problem, please contact Eve Ashe on 07956 839713.
-                </p>
-
                 <p style="margin-top:30px;">We hope you have a wonderful holiday.</p>
                 <p style="margin-bottom:0;">Richard and Louise</p>
                 
@@ -198,7 +191,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid status value' });
     }
 
-    // ---- 4️⃣ Send via Resend ----
+    // ---- 4️⃣ Send guest email ----
     await resend.emails.send({
       from: 'Cornerstones Booking <booking@cornerstonescrantock.com>',
       to: guest_email,
@@ -206,9 +199,42 @@ export default async function handler(req, res) {
       html,
     });
 
+    // ---- 5️⃣ Notify Cleaners (Only if Approved) ----
+    if (status === 'approved') {
+      const { data: cleaners, error: cleanerError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('role', 'Cleaner');
+
+      if (!cleanerError && cleaners.length > 0) {
+        const cleanerEmails = cleaners.map(c => c.email);
+        const cleanerHtml = `
+          <div style="font-family:sans-serif; border: 1px solid #eee; padding: 20px; max-width: 600px;">
+            <h2 style="color: #0f2b4c;">New Booking Approved</h2>
+            <p>A new stay has been confirmed for Cornerstones.</p>
+            <p><strong>Check-in:</strong> ${new Date(check_in).toLocaleDateString('en-GB')}</p>
+            <p><strong>Check-out:</strong> ${new Date(check_out).toLocaleDateString('en-GB')}</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p>View all upcoming bookings on the admin dashboard:</p>
+            <a href="https://www.cornerstonescrantock.com/admin" 
+               style="display: inline-block; padding: 10px 20px; background-color: #0f2b4c; color: #e7b333; text-decoration: none; border-radius: 5px; font-weight: bold;">
+               Go to Admin Dashboard
+            </a>
+          </div>
+        `;
+
+        await resend.emails.send({
+          from: 'Cornerstones System <system@cornerstonescrantock.com>',
+          to: cleanerEmails,
+          subject: `New Cleaning Required: ${new Date(check_in).toLocaleDateString('en-GB')}`,
+          html: cleanerHtml,
+        });
+      }
+    }
+
     return res.status(200).json({ success: true, sent: guest_email });
   } catch (err) {
-    console.error('Email send error:', err);
-    return res.status(500).json({ error: 'Failed to send booking email', details: err.message });
+    console.error('Email processing error:', err);
+    return res.status(500).json({ error: 'Failed to process emails', details: err.message });
   }
 }
