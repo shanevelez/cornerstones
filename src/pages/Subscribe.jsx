@@ -174,7 +174,7 @@ function Subscribe() {
                 <button
                   type="submit"
                   disabled={status === "loading"}
-                  className="w-full bg-primary text-white py-3 px-4 rounded-md shadow hover:bg-yellow-500 hover:text-white transition duration-200 font-medium disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center"
+                  className="w-full bg-secondary text-white py-3 px-4 rounded-md shadow hover:opacity-90 hover:text-white transition duration-200 font-medium disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center"
                 >
                   {status === "loading" ? (
                     <>
