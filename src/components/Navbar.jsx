@@ -2,20 +2,13 @@ function Navbar() {
   return (
     <header className="w-full bg-white shadow-sm">
       <nav className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 px-6 text-center sm:text-left">
-        
-        {/* Logo + Title Group */}
+        {/* Title */}
         <a
           href="https://www.cornerstonescrantock.com"
-          className="flex items-center justify-center sm:justify-start gap-3 group mb-3 sm:mb-0"
+          className="font-heading text-2xl text-primary mb-3 sm:mb-0 flex items-center justify-center sm:justify-start gap-3"
         >
-          <img 
-            src="images/logo-notxt.png" 
-            alt="Cornerstones Logo" 
-            className="h-8 w-auto object-contain" 
-          />
-          <span className="font-heading text-2xl text-primary">
-            Cornerstones
-          </span>
+          <img src="images/logo-notxt.png" alt="" className="h-8 w-auto" />
+          Cornerstones
         </a>
 
         {/* Nav links */}
@@ -43,3 +36,5 @@ function Navbar() {
     </header>
   );
 }
+
+export default Navbar;
