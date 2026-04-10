@@ -14,11 +14,12 @@ function Hero() {
           Our family holiday home for generations
         </p>
         <a
-          href="#booking"
-          className="bg-primary text-white font-sans text-lg px-6 py-3 rounded-full shadow-md hover:bg-yellow-500 transition"
-        >
-          Book Now
-        </a>
+  href="#booking"
+  // Swapping to bg-secondary (the orange) for the button
+  className="bg-secondary text-white font-sans text-lg px-6 py-3 rounded-full shadow-md hover:opacity-90 transition inline-block"
+>
+  Book Now
+</a>
       </div>
     </main>
   )
