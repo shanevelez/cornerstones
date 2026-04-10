@@ -335,7 +335,7 @@ setBookings((prev) => [
               className={`font-sans text-lg px-6 py-3 rounded-md shadow transition ${
                 isInvalid || !range.from || !range.to || isSameDaySel
                   ? "bg-gray-400 text-white cursor-not-allowed"
-                  : "bg-primary text-white hover:bg-yellow-500"
+                  : "bg-secondary text-white hover:opacity-90"
               }`}
             >
               Request Booking
