@@ -5,15 +5,15 @@
 /* Theme variables */
 .rdp-root,
 .rdp {
-  --rdp-accent-color: #f4b400;                 /* Cornerstones primary (selection) */
-  --rdp-accent-background-color: #f4b400;
-  --rdp-range_middle-background-color: rgba(244, 180, 0, 0.20);
-  --rdp-range_middle-color: #0f2b4c;
-  --rdp-color: #0f2b4c;
+  --rdp-accent-color: #e65100;                 /* Brand Deep Orange */
+  --rdp-accent-background-color: #e65100;
+  --rdp-range_middle-background-color: rgba(230, 81, 0, 0.15); /* Soft Orange Tint */
+  --rdp-range_middle-color: #1a2e35;           /* Brand Navy */
+  --rdp-color: #1a2e35;
   --rdp-background-color: #ffffff;
   --rdp-outside-color: #9ca3af;
-  --rdp-today-color: #0f2b4c;
-  --rdp-today-outline: 2px solid #f4b400;
+  --rdp-today-color: #1a2e35;
+  --rdp-today-outline: 2px solid #e65100;
   --rdp-font-family: Inter, sans-serif;
   --rdp-cell-size: 42px;
 }
@@ -23,8 +23,8 @@
    ========================= */
 
 .rdp-day_range_middle {
-  background-color: rgba(244, 180, 0, 0.20) !important;
-  color: #0f2b4c !important;
+  background-color: rgba(230, 81, 0, 0.15) !important;
+  color: #1a2e35 !important;
   border-radius: 0 !important;
 }
 
@@ -53,7 +53,7 @@
 :root {
   --booked-strong: #b91c1c;                 /* deep red */
   --booked-soft: rgba(185, 28, 28, 0.25);   /* light red */
-  --booked-text: #0f2b4c;
+  --booked-text: #1a2e35;
 }
 
 .rdp-day.bookedMiddle {
@@ -101,9 +101,10 @@
 
 /* NEW: if a day is both bookedStart and bookedEnd, show it as fully booked */
 .rdp-day.bookedStart.bookedEnd {
-  background-color: var(--booked-strong) !important;
-  color: #fff !important;
+  background-color: var(--booked-soft) !important;
+  color: var(--booked-text) !important;
   border-radius: 0 !important;
+  position: static !important;
 }
 .rdp-day.bookedStart.bookedEnd::before {
   display: none !important;
@@ -125,15 +126,4 @@
 .rdp-nav_button:hover {
   background-color: rgba(185, 28, 28, 0.18) !important;
   border-radius: 50%;
-}
-/* If a day is both start and end, treat it like bookedMiddle */
-.rdp-day.bookedStart.bookedEnd {
-  background-color: var(--booked-soft) !important;
-  color: var(--booked-text) !important;
-  border-radius: 0 !important;
-  position: static !important; /* reset positioning */
-}
-
-.rdp-day.bookedStart.bookedEnd::before {
-  display: none !important;
 }
