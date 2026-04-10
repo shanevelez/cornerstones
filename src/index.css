@@ -19,8 +19,11 @@ input[type="number"] {
   --font-sans: Inter, sans-serif;
   --font-heading: "Playfair Display", serif;
 
-  --color-primary: #f4b400;
-  --color-secondary: #1976d2;
+  /* The Navy from your logo text */
+  --color-primary: #1a2e35; 
+  /* The Orange from the sun icon */
+  --color-secondary: #ff8c00; 
+  
   --color-neutralbg: #fafafa;
   --color-text: #333333;
 }
