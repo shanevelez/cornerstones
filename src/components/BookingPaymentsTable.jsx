@@ -7,15 +7,30 @@ function BookingPaymentsTable({ userRole }) {
   const [sortDir, setSortDir] = useState('asc');
   const [updatingId, setUpdatingId] = useState(null);
   const [paidFilter, setPaidFilter] = useState('unpaid');
+  const [rates, setRates] = useState([]); // 🆕 Storing current rates for pending fallbacks
   
   // Modal State
   const [selectedBooking, setSelectedBooking] = useState(null);
 
   const canEdit = ['Admin', 'Payment Manager'].includes(userRole);
 
+  // 🆕 Fetch active rates for fallbacks on component mount
+  useEffect(() => {
+    const fetchRates = async () => {
+      const { data } = await supabase.from('rates').select('*');
+      if (data) setRates(data);
+    };
+    fetchRates();
+  }, []);
+
   // 💷 Pricing Logic Helper (Table View - Returns Total Only)
   const calculateAmountDue = (booking) => {
     if (!booking) return 0;
+    
+    // 🆕 PRO BUILD OPTIMIZATION: If the booking already has a snapshot total, use it!
+    if (booking.total_paid !== null && booking.total_paid !== undefined) {
+      return booking.total_paid;
+    }
 
     const {
       check_in,
@@ -29,60 +44,79 @@ function BookingPaymentsTable({ userRole }) {
 
     const start = new Date(check_in);
     const end = new Date(check_out);
-    const diffTime = Math.abs(end - start);
-    const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    
+    const nights = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)); 
     if (nights <= 0) return 0;
 
+    // Build lookup from cached rates matching the check-in date window
+    const targetRates = rates.filter(r => 
+      r.is_family === !!family_member &&
+      r.start_date <= check_in &&
+      (!r.end_date || r.end_date >= check_in)
+    );
+
+    const rateMap = targetRates.reduce((acc, r) => {
+      acc[r.guest_type] = Number(r.rate_per_night);
+      return acc;
+    }, { adult: 40, grandchild_over21: 40, young_person: 12, cleaning: 40 }); // Hardcoded default fallback
+
     let nightlyTotal = 0;
+    nightlyTotal += (adults * rateMap['adult']);
+    nightlyTotal += (grandchildren_over21 * rateMap['grandchild_over21']);
+    nightlyTotal += ((children_16plus + students) * rateMap['young_person']);
 
-    if (family_member) {
-      nightlyTotal += (adults * 32);
-      nightlyTotal += (grandchildren_over21 * 25);
-      nightlyTotal += ((children_16plus + students) * 12);
-    } else {
-      nightlyTotal += ((adults + grandchildren_over21) * 40);
-      nightlyTotal += ((children_16plus + students) * 12);
-    }
-
-    return (nightlyTotal * nights) + 40;
+    return (nightlyTotal * nights) + rateMap['cleaning'];
   };
 
   // 💷 Modal Breakdown Helper (Itemized List)
   const getBreakdownData = (booking) => {
     if (!booking) return null;
-    const { check_in, check_out, adults=0, grandchildren_over21=0, children_16plus=0, students=0, family_member } = booking;
-    
-    const start = new Date(check_in);
-    const end = new Date(check_out);
-    const diffTime = Math.abs(end - start);
-    const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    if (nights <= 0) return null;
 
-    const lines = [];
+    // 🆕 PRO BUILD OPTIMIZATION: Use historical snapshot if available
+    if (booking.breakdown) {
+      const lines = [];
+      if (booking.breakdown.adults?.count > 0) lines.push({ label: 'Adults', ...booking.breakdown.adults });
+      if (booking.breakdown.grandchildren?.count > 0) lines.push({ label: 'Grandchildren 21+', ...booking.breakdown.grandchildren });
+      if (booking.breakdown.young?.count > 0) lines.push({ label: 'Children 16+ / Students', ...booking.breakdown.young });
+      
+      const start = new Date(booking.check_in);
+      const end = new Date(booking.check_out);
+      const nights = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)); 
 
-    if (family_member) {
-       // --- FAMILY RATES ---
-       if (adults > 0) lines.push({ label: 'Adults (Family)', count: adults, rate: 32, total: adults * 32 * nights });
-       if (grandchildren_over21 > 0) lines.push({ label: 'Grandchildren 21+ (Family)', count: grandchildren_over21, rate: 25, total: grandchildren_over21 * 25 * nights });
-       
-       const young = children_16plus + students;
-       if (young > 0) lines.push({ label: 'Children 16+ / Students (Family)', count: young, rate: 12, total: young * 12 * nights });
-    } else {
-       // --- STANDARD RATES ---
-       // SEPARATED: Adults
-       if (adults > 0) lines.push({ label: 'Adults', count: adults, rate: 40, total: adults * 40 * nights });
-       
-       // SEPARATED: Grandchildren 21+
-       if (grandchildren_over21 > 0) lines.push({ label: 'Grandchildren 21+', count: grandchildren_over21, rate: 40, total: grandchildren_over21 * 40 * nights });
-
-       // Combined Young Adults (Since they are same category/price)
-       const young = children_16plus + students;
-       if (young > 0) lines.push({ label: 'Children 16+ / Students', count: young, rate: 12, total: young * 12 * nights });
+      return {
+        lines,
+        nights,
+        total: booking.total_paid
+      };
     }
 
-    const subTotal = lines.reduce((acc, curr) => acc + curr.total, 0);
-    return { lines, nights, subTotal, total: subTotal + 40 };
+    // Fallback if booking is still pending and has no snapshot metadata yet
+    const { check_in, check_out, adults=0, grandchildren_over21=0, children_16plus=0, students=0, family_member } = booking;
+    const start = new Date(check_in);
+    const end = new Date(check_out);
+    const nights = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)); 
+    if (nights <= 0) return null;
+
+    const targetRates = rates.filter(r => 
+      r.is_family === !!family_member &&
+      r.start_date <= check_in &&
+      (!r.end_date || r.end_date >= check_in)
+    );
+
+    const rateMap = targetRates.reduce((acc, r) => {
+      acc[r.guest_type] = Number(r.rate_per_night);
+      return acc;
+    }, { adult: 40, grandchild_over21: 40, young_person: 12, cleaning: 40 });
+
+    const lines = [];
+    const labelSuff = family_member ? ' (Family)' : '';
+
+    if (adults > 0) lines.push({ label: `Adults${labelSuff}`, count: adults, rate: rateMap['adult'], total: adults * rateMap['adult'] * nights });
+    if (grandchildren_over21 > 0) lines.push({ label: `Grandchildren 21+${labelSuff}`, count: grandchildren_over21, rate: rateMap['grandchild_over21'], total: grandchildren_over21 * rateMap['grandchild_over21'] * nights });
+    
+    const young = children_16plus + students;
+    if (young > 0) lines.push({ label: `Children 16+ / Students${labelSuff}`, count: young, rate: rateMap['young_person'], total: young * rateMap['young_person'] * nights });
+
+    return { lines, nights, total: lines.reduce((acc, curr) => acc + curr.total, 0) + rateMap['cleaning'] };
   };
 
   const fetchPayments = async () => {
@@ -103,7 +137,9 @@ function BookingPaymentsTable({ userRole }) {
           grandchildren_over21,
           children_16plus,
           students,
-          family_member
+          family_member,
+          total_paid,
+          breakdown
         )
       `)
       .eq('is_paid', paidFilter === 'paid')
@@ -204,7 +240,9 @@ function BookingPaymentsTable({ userRole }) {
                 
                 <div className="flex justify-between text-sm">
                     <span>Cleaning Fee</span>
-                    <span className="font-mono text-gray-700">£40</span>
+                    <span className="font-mono text-gray-700">
+                      £{selectedBooking.bookings.breakdown?.cleaning || 40}
+                    </span>
                 </div>
               </div>
 

@@ -29,21 +29,56 @@ export default async function handler(req, res) {
 
     const { guest_name, guest_email, check_in, check_out, id: booking_id, cancel_token } = booking;
   
-    // ---- 2️⃣ Pricing & Calculation Logic ----
+    // ---- 2️⃣ Pricing & Dynamic Calculation Logic ----
     const start = new Date(check_in);
     const end = new Date(check_out);
     const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
     
     const isFamily = booking.family_member === true;
-    const adultRate = isFamily ? 32 : 40;
-    const grandChildRate = isFamily ? 25 : 40;
-    const youngPersonRate = 12;
-    const CLEANING_FEE = 40;
+
+    // 🆕 Fetch the active rates relative to historical check-in window
+    const { data: activeRates, error: ratesError } = await supabase
+      .from('rates')
+      .select('guest_type, rate_per_night')
+      .eq('is_family', isFamily)
+      .lte('start_date', check_in)
+      .or(`end_date.is.null,end_date.gte.${check_in}`);
+
+    if (ratesError || !activeRates || activeRates.length === 0) {
+      throw new Error('Failed to find active rates for this check-in timeline.');
+    }
+
+    // Map rows to clean variables
+    const rateMap = activeRates.reduce((acc, r) => {
+      acc[r.guest_type] = Number(r.rate_per_night);
+      return acc;
+    }, {});
+
+    const adultRate = rateMap['adult'] || (isFamily ? 32 : 40);
+    const grandChildRate = rateMap['grandchild_over21'] || (isFamily ? 25 : 40);
+    const youngPersonRate = rateMap['young_person'] || 12;
+    const CLEANING_FEE = rateMap['cleaning'] || 40;
 
     const adultTotal = (booking.adults || 0) * adultRate * nights;
     const grandChildTotal = (booking.grandchildren_over21 || 0) * grandChildRate * nights;
     const youngTotal = ((booking.children_16plus || 0) + (booking.students || 0)) * youngPersonRate * nights;
     const finalBalance = adultTotal + grandChildTotal + youngTotal + CLEANING_FEE;
+
+    // 🆕 Save the calculation snapshot right into the booking row forever
+    if (status === 'approved') {
+      await supabase
+        .from('bookings')
+        .update({
+          total_paid: finalBalance,
+          breakdown: {
+            adults: { count: booking.adults || 0, rate: adultRate, total: adultTotal },
+            grandchildren: { count: booking.grandchildren_over21 || 0, rate: grandChildRate, total: grandChildTotal },
+            young: { count: ((booking.children_16plus || 0) + (booking.students || 0)), rate: youngPersonRate, total: youngTotal },
+            cleaning: CLEANING_FEE
+          }
+        })
+        .eq('id', bookingId);
+    }
 
     const checkInYear = new Date(check_in).getFullYear();
     const bookingNumber = `${checkInYear}${String(booking_id).padStart(2, '0')}`;

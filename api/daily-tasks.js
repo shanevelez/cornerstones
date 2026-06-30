@@ -88,7 +88,7 @@ export default async function handler(req, res) {
     // 🏖️ TASK 2: REMIND GUESTS (7 Days Before Check-in)
     // ============================================================
 
-    // 🛡️ SKIP IN TEST MODE
+// 🛡️ SKIP IN TEST MODE
     if (!isTestMode) {
       const { data: arrivingBookings } = await supabase
         .from('bookings')
@@ -99,33 +99,23 @@ export default async function handler(req, res) {
       if (arrivingBookings && arrivingBookings.length > 0) {
         const guestPromises = arrivingBookings.map(booking => {
           
-          // 1. Calculate Nights & Booking Number
           const start = new Date(booking.check_in);
           const end = new Date(booking.check_out);
           const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
           const checkInYear = start.getFullYear();
           const bookingNumber = `${checkInYear}${String(booking.id).padStart(2, '0')}`;
 
-          // 2. Pricing Logic (Family vs Regular)
-          const isFamily = booking.family_member === true;
-          const adultRate = isFamily ? 32 : 40;
-          const grandChildRate = isFamily ? 25 : 40;
-          const youngPersonRate = 12;
-          const CLEANING_FEE = 40;
+          // 🆕 PRO BUILD FIX: Pull directly from the snapshot saved during approval!
+          const finalBalance = booking.total_paid || 0;
+          const snapBreakdown = booking.breakdown || {};
 
-          // 3. The Math
-          const adultTotal = (booking.adults || 0) * adultRate * nights;
-          const grandChildTotal = (booking.grandchildren_over21 || 0) * grandChildRate * nights;
-          const youngTotal = ((booking.children_16plus || 0) + (booking.students || 0)) * youngPersonRate * nights;
-          const finalBalance = adultTotal + grandChildTotal + youngTotal + CLEANING_FEE;
-
-          // 4. Create the Pricing Breakdown HTML
+          // 🆕 Build HTML directly from snap json items
           const pricingHtml = `
             <ul style="margin-left:20px; color:#333;">
-              <li>Adults (21+): ${booking.adults || 0} x £${adultRate} per night</li>
-              ${booking.grandchildren_over21 > 0 ? `<li>Grandchildren (21+): ${booking.grandchildren_over21} x £${grandChildRate} per night</li>` : ''}
-              ${((booking.children_16plus || 0) + (booking.students || 0)) > 0 ? `<li>16+ / Students: ${((booking.children_16plus || 0) + (booking.students || 0))} x £${youngPersonRate} per night</li>` : ''}
-              <li>Cleaning charge: £${CLEANING_FEE}</li>
+              <li>Adults (21+): ${snapBreakdown.adults?.count || 0} x £${snapBreakdown.adults?.rate || 0} per night</li>
+              ${snapBreakdown.grandchildren?.count > 0 ? `<li>Grandchildren (21+): ${snapBreakdown.grandchildren.count} x £${snapBreakdown.grandchildren.rate} per night</li>` : ''}
+              ${snapBreakdown.young?.count > 0 ? `<li>16+ / Students: ${snapBreakdown.young.count} x £${snapBreakdown.young.rate} per night</li>` : ''}
+              <li>Cleaning charge: £${snapBreakdown.cleaning || 40}</li>
               <li style="margin-top:10px; list-style:none;"><strong>Total for ${nights} nights: £${finalBalance}</strong></li>
             </ul>
           `;
@@ -192,22 +182,12 @@ export default async function handler(req, res) {
 
                   <h3 style="color:#0f2b4c;margin-top:28px;">During your stay</h3>
                   <ul style="margin-left:20px;">
-                    ${!isFamily ? '<li>Bring your own towels (bedding provided).</li>' : ''}
+                    ${!(booking.family_member === true) ? '<li>Bring your own towels (bedding provided).</li>' : ''}
                     <li>Bins collected early Monday — put out by 7 am at the bottom of the drive.</li>
                     <li>See the folder in the house for local info and parking guidance.</li>
                     <li>EV charging points – Crantock Village Hall and Esso garage (Newquay Road).</li>
                     <li><a href="https://www.cornerstonescrantock.com/local-recs">Check here</a> for local recommendations made by our guests and please do submit your own!</li>
                   </ul>
-
-                  <h3 style="color:#0f2b4c;margin-top:28px;">Parking</h3>
-                  <p style="margin-top:24px;">              
-                    The drive at Cornerstones is spacious and parking locally in the summer is limited so we have a
-                    Just Park space adjacent to the wall at the top of the drive. Just Park is an app that allows users to book parking spaces on residential properties. We offer a very small part of our drive to other tourists in the area.<BR><BR> We appreciate that this may be an
-                    issue for some visitors particularly if bringing multiple vehicles. If you anticipate there being a
-                    problem or you have any other questions about the Just Park space, please contact Eve Ashe on
-                    07956 839713.
-                    Further details are available in the information folder in the house.
-                  </p>
 
                   <p style="margin-top:30px;">We hope you have a wonderful holiday.</p>
                   <p style="margin-bottom:0;">Richard and Louise</p>
