@@ -355,7 +355,7 @@ function Admin() {
           <div className="mb-12 border-b border-gray-100 pb-10 space-y-10">
             <div>
               <h3 className="text-xl font-heading text-primary mb-1">
-                AGM Trust Analytics
+                Analytics
               </h3>
               <p className="text-sm text-gray-500">Live operational density tracking and revenue breakdown streams.</p>
               <div className="mt-4">
@@ -365,7 +365,7 @@ function Admin() {
 
             <div>
               <h3 className="text-xl font-heading text-primary mb-1">
-                Trust Bookkeeper Export Ledger
+               Book Keeping
               </h3>
               <p className="text-sm text-gray-500">Delineated asset cost-share distributions for annual audit review files.</p>
               <div className="mt-4">
