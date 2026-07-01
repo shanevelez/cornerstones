@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 export default function AgmDashboard() {
   const [allBookings, setAllBookings] = useState([]);
   const [metrics, setMetrics] = useState([]);
-  const [totals, setTotals] = useState({ totalRevenue: 0, avgOccupancy: 0, lostRevenue: 0 });
+  const [totals, setTotals] = useState({ totalRevenue: 0, avgOccupancy: 0, lostRevenue: 0, familyRevenue: 0, standardRevenue: 0 });
   const [loading, setLoading] = useState(true);
   
   // Date Filter States
@@ -27,7 +27,7 @@ export default function AgmDashboard() {
     fetchRawData();
   }, []);
 
-  // Dynamic timeline scale recalibration
+  // Dynamic timeline scale recalibration and metric distribution
   useEffect(() => {
     if (allBookings.length === 0 && !loading) return;
 
@@ -40,7 +40,6 @@ export default function AgmDashboard() {
     let minDate = startDate ? new Date(startDate) : null;
     let maxDate = endDate ? new Date(endDate) : null;
 
-    // If no dates are selected, default strictly to the span of your existing data
     if (!minDate || !maxDate) {
       allBookings.forEach(b => {
         const bStart = new Date(b.check_in);
@@ -50,15 +49,13 @@ export default function AgmDashboard() {
       });
     }
 
-    // Fallback safeguard if database is completely empty
     if (!minDate) minDate = new Date();
     if (!maxDate) maxDate = new Date();
 
-    // Align to the first day of the months
     let currentIter = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
     const endBound = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
 
-    // 3. Dynamically generate ONLY the required month buckets
+    // 3. Dynamically generate required month buckets
     const monthsMap = {};
     while (currentIter <= endBound) {
       const monthKey = currentIter.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
@@ -73,26 +70,43 @@ export default function AgmDashboard() {
         potentialRevenue: daysInMonth * 40 
       };
       
-      // Move forward 1 month
       currentIter.setMonth(currentIter.getMonth() + 1);
     }
 
     let totalRevenue = 0;
+    let familyRevenue = 0;
+    let standardRevenue = 0;
 
-    // 4. Distribute the filtered records across the dynamic axis
+    // 4. Distribute records across the dynamic axis night-by-night to prevent negative occupancy math
     filtered.forEach(b => {
-      const start = new Date(b.check_in);
-      const end = new Date(b.check_out);
-      const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      let currentNight = new Date(b.check_in);
+      const endCheckOut = new Date(b.check_out);
       const totalGuests = (b.adults || 0) + (b.grandchildren_over21 || 0) + (b.children_16plus || 0) + (b.students || 0);
-      
+
+      // Track running segmentation revenue metrics
       totalRevenue += (b.total_paid || 0);
-      const monthKey = start.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
-      
-      if (monthsMap[monthKey]) {
-        monthsMap[monthKey].bookedDays += nights;
-        monthsMap[monthKey].actualRevenue += (b.total_paid || 0);
-        monthsMap[monthKey].guestNights += (nights * totalGuests);
+      if (b.family_member === true) {
+        familyRevenue += (b.total_paid || 0);
+      } else {
+        standardRevenue += (b.total_paid || 0);
+      }
+
+      // Distribute calendar night counts precisely across cross-month boundaries
+      while (currentNight < endCheckOut) {
+        const monthKey = currentNight.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+        
+        if (monthsMap[monthKey]) {
+          monthsMap[monthKey].bookedDays += 1;
+          monthsMap[monthKey].guestNights += totalGuests;
+        }
+        
+        currentNight.setDate(currentNight.getDate() + 1);
+      }
+
+      // Revenue allocation tied cleanly to the primary booking container month
+      const checkInMonthKey = new Date(b.check_in).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+      if (monthsMap[checkInMonthKey]) {
+        monthsMap[checkInMonthKey].actualRevenue += (b.total_paid || 0);
       }
     });
 
@@ -114,7 +128,7 @@ export default function AgmDashboard() {
     const totalLostRevenue = monthlyDataArray.reduce((acc, curr) => acc + curr['Revenue Leakage'], 0);
     const avgOccupancy = monthlyDataArray.length ? Math.round(totalOccupancySum / monthlyDataArray.length) : 0;
 
-    setTotals({ totalRevenue, avgOccupancy, lostRevenue: totalLostRevenue });
+    setTotals({ totalRevenue, avgOccupancy, lostRevenue: totalLostRevenue, familyRevenue, standardRevenue });
     setMetrics(monthlyDataArray);
   }, [startDate, endDate, allBookings, loading]);
 
@@ -123,34 +137,48 @@ export default function AgmDashboard() {
   return (
     <div className="space-y-6">
       {/* Filter Layout Controls Card */}
-      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-wrap items-center gap-4 text-sm">
-        <span className="font-bold text-gray-700">Filter Analysis Window:</span>
-        <div className="flex items-center gap-2">
-          <label className="text-gray-500 font-medium">From:</label>
-          <input 
-            type="date" 
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-700"
-          />
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-wrap items-center justify-between gap-4 text-sm">
+        <div className="flex flex-wrap items-center gap-4">
+          <span className="font-bold text-gray-700">Filter Analysis Window:</span>
+          <div className="flex items-center gap-2">
+            <label className="text-gray-500 font-medium">From:</label>
+            <input 
+              type="date" 
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-700"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-gray-500 font-medium">To:</label>
+            <input 
+              type="date" 
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-700"
+            />
+          </div>
+          {(startDate || endDate) && (
+            <button 
+              onClick={() => { setStartDate(''); setEndDate(''); }}
+              className="text-xs text-red-600 hover:underline font-medium"
+            >
+              Reset Filters
+            </button>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-gray-500 font-medium">To:</label>
-          <input 
-            type="date" 
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-700"
-          />
+
+        {/* 🆕 Split Revenue Summary KPIs inside filter row */}
+        <div className="flex items-center gap-4 text-xs font-medium border-l border-gray-200 pl-4">
+          <div className="text-right">
+            <span className="text-gray-400 block uppercase tracking-wider text-[10px]">Family Core</span>
+            <span className="text-blue-600 font-bold text-sm">£{totals.familyRevenue.toLocaleString()}</span>
+          </div>
+          <div className="text-right">
+            <span className="text-gray-400 block uppercase tracking-wider text-[10px]">Standard Guest</span>
+            <span className="text-amber-600 font-bold text-sm">£{totals.standardRevenue.toLocaleString()}</span>
+          </div>
         </div>
-        {(startDate || endDate) && (
-          <button 
-            onClick={() => { setStartDate(''); setEndDate(''); }}
-            className="text-xs text-red-600 hover:underline font-medium"
-          >
-            Reset Filters
-          </button>
-        )}
       </div>
 
       {/* KPI Highlight Rows */}
