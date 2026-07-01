@@ -4,7 +4,6 @@ import { supabase } from '../supabaseClient';
 import BookingsTable from '../components/BookingsTable';
 import CleanerTable from '../components/CleanerTable';
 import BookingPaymentsTable from '../components/BookingPaymentsTable';
-// 🆕 Import your pro reporting blocks here:
 import AgmDashboard from '../components/AgmDashboard';
 import BookkeeperReport from '../components/BookkeeperReport';
 
@@ -121,7 +120,7 @@ function Admin() {
       } catch (err) {
         console.error('Action failed:', err);
       } finally {
-        boxModalLoading(false);
+        setModalLoading(false);
       }
     };
 
@@ -350,31 +349,6 @@ function Admin() {
           </button>
         </div>
 
-        {/* 🆕 ROLE PROTECTED ANALYTICS SECTIONS (Admin & Payment Managers Only) */}
-        {['Admin', 'Payment Manager'].includes(userRole) && (
-          <div className="mb-12 border-b border-gray-100 pb-10 space-y-10">
-            <div>
-              <h3 className="text-xl font-heading text-primary mb-1">
-                Analytics
-              </h3>
-              <p className="text-sm text-gray-500">Live operational density tracking and revenue breakdown streams.</p>
-              <div className="mt-4">
-                <AgmDashboard />
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-heading text-primary mb-1">
-               Book Keeping
-              </h3>
-              <p className="text-sm text-gray-500">Delineated asset cost-share distributions for annual audit review files.</p>
-              <div className="mt-4">
-                <BookkeeperReport />
-              </div>
-            </div>
-          </div>
-        )}
-
         {userRole === 'Admin' && (
           <div>
             <h3 className="text-lg sm:text-xl font-heading text-primary mb-3">
@@ -411,7 +385,8 @@ function Admin() {
           </div>
         )}
 
-        {!['Admin', 'Approver', 'Payment Manager', 'Cleaner'].includes(userRole) && (
+        {/* Updated permission checks to include global validation for Trustees */}
+        {!['Admin', 'Approver', 'Payment Manager', 'Cleaner', 'Trustee'].includes(userRole) && (
           <div className="text-red-600 font-semibold text-center sm:text-left">
             Your account doesn’t have permission to access this dashboard.
           </div>
@@ -442,6 +417,31 @@ function Admin() {
             </h3>
             <div className="overflow-x-auto">
               <AdminRecommendations />
+            </div>
+          </div>
+        )}
+
+        {/* 🆕 REPORTING WORKSPACE: Moved directly to the footer of the document for Admins, Payment Managers, and Trustees */}
+        {['Admin', 'Payment Manager', 'Trustee'].includes(userRole) && (
+          <div className="mt-16 pt-10 border-t-2 border-gray-100 space-y-12">
+            <div>
+              <h3 className="text-xl font-heading text-primary mb-1">
+                AGM Trust Analytics
+              </h3>
+              <p className="text-sm text-gray-500">Live operational density tracking, revenue patterns, and cancellation metrics.</p>
+              <div className="mt-4">
+                <AgmDashboard />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-heading text-primary mb-1">
+                Trust Bookkeeper Export Ledger
+              </h3>
+              <p className="text-sm text-gray-500">Delineated cost-share distributions for spreadsheet reconciliation and audit files.</p>
+              <div className="mt-4">
+                <BookkeeperReport />
+              </div>
             </div>
           </div>
         )}
