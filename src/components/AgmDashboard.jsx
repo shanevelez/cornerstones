@@ -6,6 +6,7 @@ export default function AgmDashboard() {
   const [allBookings, setAllBookings] = useState([]);
   const [metrics, setMetrics] = useState([]);
   const [totals, setTotals] = useState({ totalRevenue: 0, avgOccupancy: 0, lostRevenue: 0, familyRevenue: 0, standardRevenue: 0 });
+  const [avgFootprint, setAvgFootprint] = useState({ adults: 0, grandchildren: 0, young: 0, ratePerNight: 40 });
   const [loading, setLoading] = useState(true);
   
   // Date Filter States
@@ -27,7 +28,7 @@ export default function AgmDashboard() {
     fetchRawData();
   }, []);
 
-  // Dynamic timeline scale recalibration and metric distribution
+  // Recalibrate dynamic timeline scale and dynamic leakage criteria
   useEffect(() => {
     if (allBookings.length === 0 && !loading) return;
 
@@ -36,7 +37,37 @@ export default function AgmDashboard() {
     if (startDate) filtered = filtered.filter(b => b.check_in >= startDate);
     if (endDate) filtered = filtered.filter(b => b.check_in <= endDate);
 
-    // 2. Dynamically determine the start and end month bounds for the chart axis
+    // 2. DYNAMIC OPPORTUNITY COST: Calculate the average footprint of actual visits inside this window
+    let totalAdultsCount = 0;
+    let totalGrandchildrenCount = 0;
+    let totalYoungCount = 0;
+    
+    filtered.forEach(b => {
+      totalAdultsCount += (b.adults || 0);
+      totalGrandchildrenCount += (b.grandchildren_over21 || 0);
+      totalYoungCount += ((b.children_16plus || 0) + (b.students || 0));
+    });
+
+    const activeCount = filtered.length || 1;
+    const avgAdults = Math.round((totalAdultsCount / activeCount) * 10) / 10;
+    const avgGrand = Math.round((totalGrandchildrenCount / activeCount) * 10) / 10;
+    const avgYoung = Math.round((totalYoungCount / activeCount) * 10) / 10;
+
+    // Estimate a baseline cost per night for an average group size using typical non-family tiers
+    // Adult (£40), Grandchild (£40), Young Person (£12)
+    const derivedNightlyRate = Math.max(
+      (avgAdults * 40) + (avgGrand * 40) + (avgYoung * 12), 
+      40 // absolute floor safeguard
+    );
+
+    setAvgFootprint({
+      adults: avgAdults,
+      grandchildren: avgGrand,
+      young: avgYoung,
+      ratePerNight: Math.round(derivedNightlyRate)
+    });
+
+    // 3. Dynamically determine the start and end month bounds for the chart axis
     let minDate = startDate ? new Date(startDate) : null;
     let maxDate = endDate ? new Date(endDate) : null;
 
@@ -55,7 +86,7 @@ export default function AgmDashboard() {
     let currentIter = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
     const endBound = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
 
-    // 3. Dynamically generate required month buckets
+    // 4. Generate dynamic month buckets using the calculated custom baseline potential
     const monthsMap = {};
     while (currentIter <= endBound) {
       const monthKey = currentIter.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
@@ -67,7 +98,7 @@ export default function AgmDashboard() {
         bookedDays: 0,
         actualRevenue: 0,
         guestNights: 0,
-        potentialRevenue: daysInMonth * 40 
+        potentialRevenue: Math.round(daysInMonth * derivedNightlyRate) // Scaled directly to your custom group footprint
       };
       
       currentIter.setMonth(currentIter.getMonth() + 1);
@@ -77,13 +108,12 @@ export default function AgmDashboard() {
     let familyRevenue = 0;
     let standardRevenue = 0;
 
-    // 4. Distribute records across the dynamic axis night-by-night to prevent negative occupancy math
+    // 5. Distribute records night-by-night
     filtered.forEach(b => {
       let currentNight = new Date(b.check_in);
       const endCheckOut = new Date(b.check_out);
       const totalGuests = (b.adults || 0) + (b.grandchildren_over21 || 0) + (b.children_16plus || 0) + (b.students || 0);
 
-      // Track running segmentation revenue metrics
       totalRevenue += (b.total_paid || 0);
       if (b.family_member === true) {
         familyRevenue += (b.total_paid || 0);
@@ -91,7 +121,6 @@ export default function AgmDashboard() {
         standardRevenue += (b.total_paid || 0);
       }
 
-      // Distribute calendar night counts precisely across cross-month boundaries
       while (currentNight < endCheckOut) {
         const monthKey = currentNight.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
         
@@ -103,7 +132,6 @@ export default function AgmDashboard() {
         currentNight.setDate(currentNight.getDate() + 1);
       }
 
-      // Revenue allocation tied cleanly to the primary booking container month
       const checkInMonthKey = new Date(b.check_in).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
       if (monthsMap[checkInMonthKey]) {
         monthsMap[checkInMonthKey].actualRevenue += (b.total_paid || 0);
@@ -137,7 +165,7 @@ export default function AgmDashboard() {
   return (
     <div className="space-y-6">
       {/* Filter Layout Controls Card */}
-      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-wrap items-center justify-between gap-4 text-sm">
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4 text-sm">
         <div className="flex flex-wrap items-center gap-4">
           <span className="font-bold text-gray-700">Filter Analysis Window:</span>
           <div className="flex items-center gap-2">
@@ -168,8 +196,8 @@ export default function AgmDashboard() {
           )}
         </div>
 
-        {/* 🆕 Split Revenue Summary KPIs inside filter row */}
-        <div className="flex items-center gap-4 text-xs font-medium border-l border-gray-200 pl-4">
+        {/* Split Revenue Summary KPIs */}
+        <div className="flex items-center gap-4 text-xs font-medium border-t md:border-t-0 md:border-l border-gray-200 pt-3 md:pt-0 md:pl-4">
           <div className="text-right">
             <span className="text-gray-400 block uppercase tracking-wider text-[10px]">Family Core</span>
             <span className="text-blue-600 font-bold text-sm">£{totals.familyRevenue.toLocaleString()}</span>
@@ -199,41 +227,51 @@ export default function AgmDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Chart 1: Percentage Occupancy */}
-        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
-          <h4 className="text-base font-bold text-gray-900 mb-1">Calendar Occupancy Timeline</h4>
-          <p className="text-xs text-gray-400 mb-4">Identifies the most unbooked months and usage density inside the filtered scope.</p>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={metrics}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis unit="%" tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value, name) => name === 'Occupancy %' ? `${value}%` : `${value} Days`} />
-                <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="Occupancy %" fill="#e7b333" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Vacancy Days" fill="#9ca3af" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h4 className="text-base font-bold text-gray-900 mb-1">Calendar Occupancy Timeline</h4>
+            <p className="text-xs text-gray-400 mb-4">Identifies the most unbooked months and usage density inside the filtered scope.</p>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metrics}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis unit="%" tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value, name) => name === 'Occupancy %' ? `${value}%` : `${value} Days`} />
+                  <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="Occupancy %" fill="#e7b333" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Vacancy Days" fill="#9ca3af" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
+          <p className="text-xs text-gray-500 mt-4 leading-relaxed bg-gray-50 p-3 rounded border border-gray-100">
+            <strong>Timeline Breakdown:</strong> Tracks the actual nights the property is utilized each month vs. the remaining vacant nights. Cross-month visits are split dynamically across individual nights to preserve mathematical precision and eliminate artificial layout distortions.
+          </p>
         </div>
 
         {/* Chart 2: Revenue Leakage */}
-        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
-          <h4 className="text-base font-bold text-gray-900 mb-1">Financial Opportunity Loss</h4>
-          <p className="text-xs text-gray-400 mb-4">Visualizes where the trust loses potential asset contributions due to calendar gaps.</p>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={metrics}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis unit="£" tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value) => `£${value.toLocaleString()}`} />
-                <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="Realized Income" stroke="#0f2b4c" strokeWidth={2.5} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="Revenue Leakage" stroke="#dc2626" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h4 className="text-base font-bold text-gray-900 mb-1">Financial Opportunity Loss</h4>
+            <p className="text-xs text-gray-400 mb-4">Visualizes where the trust loses potential asset contributions due to calendar gaps.</p>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={metrics}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis unit="£" tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value) => `£${value.toLocaleString()}`} />
+                  <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+                  <Line type="monotone" dataKey="Realized Income" stroke="#0f2b4c" strokeWidth={2.5} dot={{ r: 4 }} />
+                  <Line type="monotone" dataKey="Revenue Leakage" stroke="#dc2626" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
+          <p className="text-xs text-gray-500 mt-4 leading-relaxed bg-gray-50 p-3 rounded border border-gray-100">
+            <strong>Calculation Insight:</strong> Revenue leakage tracks lost financial opportunity based on the house’s <em>actual historical booking footprint</em> for this window. Currently, your average group composition is <strong>{avgFootprint.adults} Adults</strong>, <strong>{avgFootprint.grandchildren} Grandchildren</strong>, and <strong>{avgFootprint.young} Young People</strong>, setting an objective baseline of <strong>£{avgFootprint.ratePerNight} / night</strong> to measure the opportunity cost of empty dates.
+          </p>
         </div>
       </div>
     </div>
