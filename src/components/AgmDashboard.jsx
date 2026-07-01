@@ -3,117 +3,153 @@ import { supabase } from '../supabaseClient';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 export default function AgmDashboard() {
+  const [allBookings, setAllBookings] = useState([]);
   const [metrics, setMetrics] = useState([]);
   const [totals, setTotals] = useState({ totalRevenue: 0, avgOccupancy: 0, lostRevenue: 0 });
   const [loading, setLoading] = useState(true);
+  
+  // 🆕 Date Filter States
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
-    async function calculateAdvancedMetrics() {
+    async function fetchRawData() {
       const { data: bookings } = await supabase
         .from('bookings')
         .select('*')
         .eq('status', 'approved');
 
-      if (!bookings) {
-        setLoading(false);
-        return;
+      if (bookings) {
+        setAllBookings(bookings);
       }
-
-      // Initialize a calendar baseline for the last 12 months dynamically
-      const monthsMap = {};
-      const today = new Date();
-      
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        const monthKey = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
-        const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-        
-        monthsMap[monthKey] = {
-          name: monthKey,
-          daysInMonth,
-          bookedDays: 0,
-          actualRevenue: 0,
-          guestNights: 0,
-          // Max Potential assume a standard average family footprint of 2 adults, 2 young adults + cleaning fee per weekly cycle
-          // Let's baseline max capacity conservatively as a full occupancy standard rate baseline (£40/night for adults)
-          potentialRevenue: daysInMonth * 40 
-        };
-      }
-
-      let totalRevenue = 0;
-
-      // Map over approved bookings and cleanly attribute metrics to the precise month bucket
-      bookings.forEach(b => {
-        const start = new Date(b.check_in);
-        const end = new Date(b.check_out);
-        const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-        const totalGuests = (b.adults || 0) + (b.grandchildren_over21 || 0) + (b.children_16plus || 0) + (b.students || 0);
-        
-        totalRevenue += (b.total_paid || 0);
-
-        const monthKey = start.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
-        
-        if (monthsMap[monthKey]) {
-          monthsMap[monthKey].bookedDays += nights;
-          monthsMap[monthKey].actualRevenue += (b.total_paid || 0);
-          monthsMap[monthKey].guestNights += (nights * totalGuests);
-        }
-      });
-
-      // Compute final calculations for percentages and revenue leaks
-      const monthlyDataArray = Object.values(monthsMap).map(m => {
-        const occupancyRate = Math.min(Math.round((m.bookedDays / m.daysInMonth) * 100), 100);
-        const vacancyRate = 100 - occupancyRate;
-        
-        // Lost revenue is evaluated as the vacancy percentage multiplied by the baseline opportunity cost
-        const lostRev = Math.round((vacancyRate / 100) * m.potentialRevenue);
-
-        return {
-          ...m,
-          'Occupancy %': occupancyRate,
-          'Vacancy Days': m.daysInMonth - m.bookedDays,
-          'Revenue Leakage': lostRev,
-          'Realized Income': m.actualRevenue
-        };
-      });
-
-      const totalOccupancySum = monthlyDataArray.reduce((acc, curr) => acc + curr['Occupancy %'], 0);
-      const totalLostRevenue = monthlyDataArray.reduce((acc, curr) => acc + curr['Revenue Leakage'], 0);
-      const avgOccupancy = Math.round(totalOccupancySum / monthlyDataArray.length);
-
-      setTotals({ totalRevenue, avgOccupancy, lostRevenue: totalLostRevenue });
-      setMetrics(monthlyDataArray);
       setLoading(false);
     }
-
-    calculateAdvancedMetrics();
+    fetchRawData();
   }, []);
 
-  if (loading) return <p className="text-gray-500">Compiling advanced trust analytics...</p>;
+  // 🆕 Recalculate metrics whenever raw bookings data or selected parameters change
+  useEffect(() => {
+    if (allBookings.length === 0 && !loading) return;
+
+    let filtered = [...allBookings];
+    if (startDate) filtered = filtered.filter(b => b.check_in >= startDate);
+    if (endDate) filtered = filtered.filter(b => b.check_in <= endDate);
+
+    const monthsMap = {};
+    const today = new Date();
+    
+    // Fallback baseline generation window setup
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthKey = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+      const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      
+      monthsMap[monthKey] = {
+        name: monthKey,
+        daysInMonth,
+        bookedDays: 0,
+        actualRevenue: 0,
+        guestNights: 0,
+        potentialRevenue: daysInMonth * 40 
+      };
+    }
+
+    let totalRevenue = 0;
+
+    filtered.forEach(b => {
+      const start = new Date(b.check_in);
+      const end = new Date(b.check_out);
+      const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      const totalGuests = (b.adults || 0) + (b.grandchildren_over21 || 0) + (b.children_16plus || 0) + (b.students || 0);
+      
+      totalRevenue += (b.total_paid || 0);
+      const monthKey = start.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+      
+      if (monthsMap[monthKey]) {
+        monthsMap[monthKey].bookedDays += nights;
+        monthsMap[monthKey].actualRevenue += (b.total_paid || 0);
+        monthsMap[monthKey].guestNights += (nights * totalGuests);
+      }
+    });
+
+    const monthlyDataArray = Object.values(monthsMap).map(m => {
+      const occupancyRate = Math.min(Math.round((m.bookedDays / m.daysInMonth) * 100), 100);
+      const vacancyRate = 100 - occupancyRate;
+      const lostRev = Math.round((vacancyRate / 100) * m.potentialRevenue);
+
+      return {
+        ...m,
+        'Occupancy %': occupancyRate,
+        'Vacancy Days': m.daysInMonth - m.bookedDays,
+        'Revenue Leakage': lostRev,
+        'Realized Income': m.actualRevenue
+      };
+    });
+
+    const totalOccupancySum = monthlyDataArray.reduce((acc, curr) => acc + curr['Occupancy %'], 0);
+    const totalLostRevenue = monthlyDataArray.reduce((acc, curr) => acc + curr['Revenue Leakage'], 0);
+    const avgOccupancy = Math.round(totalOccupancySum / monthlyDataArray.length);
+
+    setTotals({ totalRevenue, avgOccupancy, lostRevenue: totalLostRevenue });
+    setMetrics(monthlyDataArray);
+  }, [startDate, endDate, allBookings, loading]);
+
+  if (loading) return <p className="text-gray-500">Compiling trust analytics...</p>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* 🆕 Filter Layout Controls Card */}
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-wrap items-center gap-4 text-sm">
+        <span className="font-bold text-gray-700">Filter Analysis Window:</span>
+        <div className="flex items-center gap-2">
+          <label className="text-gray-500 font-medium">From:</label>
+          <input 
+            type="date" 
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-700"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-gray-500 font-medium">To:</label>
+          <input 
+            type="date" 
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-700"
+          />
+        </div>
+        {(startDate || endDate) && (
+          <button 
+            onClick={() => { setStartDate(''); setEndDate(''); }}
+            className="text-xs text-red-600 hover:underline font-medium"
+          >
+            Reset Filters
+          </button>
+        )}
+      </div>
+
       {/* KPI Highlight Rows */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Annual Realized Income</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filtered Income Yield</p>
           <p className="text-3xl font-bold text-gray-900 mt-1">£{totals.totalRevenue.toLocaleString()}</p>
         </div>
         <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Average Year-Round Occupancy</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Average Window Occupancy</p>
           <p className="text-3xl font-bold text-emerald-600 mt-1">{totals.avgOccupancy}%</p>
         </div>
         <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Estimated Revenue Leakage</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Revenue Leakage</p>
           <p className="text-3xl font-bold text-amber-600 mt-1">£{totals.lostRevenue.toLocaleString()}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart 1: Percentage Occupancy & Unbooked Days Tracking */}
+        {/* Chart 1: Percentage Occupancy */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
           <h4 className="text-base font-bold text-gray-900 mb-1">Calendar Occupancy Timeline</h4>
-          <p className="text-xs text-gray-400 mb-4">Identifies the most unbooked months and baseline usage density over time.</p>
+          <p className="text-xs text-gray-400 mb-4">Identifies the most unbooked months and usage density inside the filtered scope.</p>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={metrics}>
@@ -129,10 +165,10 @@ export default function AgmDashboard() {
           </div>
         </div>
 
-        {/* Chart 2: Revenue Leakage vs Realized Income */}
+        {/* Chart 2: Revenue Leakage */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
-          <h4 className="text-base font-bold text-gray-900 mb-1">Financial Opportunity Loss (Revenue Leakage)</h4>
-          <p className="text-xs text-gray-400 mb-4">Visualizes where the trust loses asset value due to calendar vacancies.</p>
+          <h4 className="text-base font-bold text-gray-900 mb-1">Financial Opportunity Loss</h4>
+          <p className="text-xs text-gray-400 mb-4">Visualizes where the trust loses potential asset contributions due to calendar gaps.</p>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={metrics}>
