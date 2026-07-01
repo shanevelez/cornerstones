@@ -1,140 +1,150 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 export default function AgmDashboard() {
-  const [metrics, setMetrics] = useState({ monthlyData: [], revenueByTier: [] });
-  const [totals, setTotals] = useState({ totalRevenue: 0, totalManNights: 0, cancelRate: 0 });
+  const [metrics, setMetrics] = useState([]);
+  const [totals, setTotals] = useState({ totalRevenue: 0, avgOccupancy: 0, lostRevenue: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function calculateMetrics() {
-      const { data: allBookings } = await supabase.from('bookings').select('*');
-      if (!allBookings) {
+    async function calculateAdvancedMetrics() {
+      const { data: bookings } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('status', 'approved');
+
+      if (!bookings) {
         setLoading(false);
         return;
       }
 
-      const approved = allBookings.filter(b => b.status === 'approved');
-      const cancelled = allBookings.filter(b => b.status === 'cancelled' || b.status === 'rejected');
-
-      const totalRevenue = approved.reduce((acc, curr) => acc + (curr.total_paid || 0), 0);
-      const cancelRate = allBookings.length ? Math.round((cancelled.length / allBookings.length) * 100) : 0;
-      
-      let totalManNights = 0;
+      // Initialize a calendar baseline for the last 12 months dynamically
       const monthsMap = {};
-      let adultRev = 0, grandChildRev = 0, youngRev = 0;
+      const today = new Date();
+      
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const monthKey = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+        const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        
+        monthsMap[monthKey] = {
+          name: monthKey,
+          daysInMonth,
+          bookedDays: 0,
+          actualRevenue: 0,
+          guestNights: 0,
+          // Max Potential assume a standard average family footprint of 2 adults, 2 young adults + cleaning fee per weekly cycle
+          // Let's baseline max capacity conservatively as a full occupancy standard rate baseline (£40/night for adults)
+          potentialRevenue: daysInMonth * 40 
+        };
+      }
 
-      approved.forEach(b => {
+      let totalRevenue = 0;
+
+      // Map over approved bookings and cleanly attribute metrics to the precise month bucket
+      bookings.forEach(b => {
         const start = new Date(b.check_in);
         const end = new Date(b.check_out);
         const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
         const totalGuests = (b.adults || 0) + (b.grandchildren_over21 || 0) + (b.children_16plus || 0) + (b.students || 0);
         
-        totalManNights += (nights * totalGuests);
+        totalRevenue += (b.total_paid || 0);
 
-        adultRev += (b.breakdown?.adults?.total || 0);
-        grandChildRev += (b.breakdown?.grandchildren?.total || 0);
-        youngRev += (b.breakdown?.young?.total || 0);
-
-        const monthName = start.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
-        if (!monthsMap[monthName]) {
-          monthsMap[monthName] = { name: monthName, 'Nights Booked': 0, 'Man-Nights (Utilization)': 0 };
+        const monthKey = start.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+        
+        if (monthsMap[monthKey]) {
+          monthsMap[monthKey].bookedDays += nights;
+          monthsMap[monthKey].actualRevenue += (b.total_paid || 0);
+          monthsMap[monthKey].guestNights += (nights * totalGuests);
         }
-        monthsMap[monthName]['Nights Booked'] += nights;
-        monthsMap[monthName]['Man-Nights (Utilization)'] += (nights * totalGuests);
       });
 
-      setTotals({ totalRevenue, totalManNights, cancelRate });
-      setMetrics({
-        monthlyData: Object.values(monthsMap),
-        revenueByTier: [
-          { name: 'Adults (21+)', value: adultRev },
-          { name: 'Grandchildren (21+)', value: grandChildRev },
-          { name: 'Students / 16+', value: youngRev }
-        ]
+      // Compute final calculations for percentages and revenue leaks
+      const monthlyDataArray = Object.values(monthsMap).map(m => {
+        const occupancyRate = Math.min(Math.round((m.bookedDays / m.daysInMonth) * 100), 100);
+        const vacancyRate = 100 - occupancyRate;
+        
+        // Lost revenue is evaluated as the vacancy percentage multiplied by the baseline opportunity cost
+        const lostRev = Math.round((vacancyRate / 100) * m.potentialRevenue);
+
+        return {
+          ...m,
+          'Occupancy %': occupancyRate,
+          'Vacancy Days': m.daysInMonth - m.bookedDays,
+          'Revenue Leakage': lostRev,
+          'Realized Income': m.actualRevenue
+        };
       });
+
+      const totalOccupancySum = monthlyDataArray.reduce((acc, curr) => acc + curr['Occupancy %'], 0);
+      const totalLostRevenue = monthlyDataArray.reduce((acc, curr) => acc + curr['Revenue Leakage'], 0);
+      const avgOccupancy = Math.round(totalOccupancySum / monthlyDataArray.length);
+
+      setTotals({ totalRevenue, avgOccupancy, lostRevenue: totalLostRevenue });
+      setMetrics(monthlyDataArray);
       setLoading(false);
     }
 
-    calculateMetrics();
+    calculateAdvancedMetrics();
   }, []);
 
-  const COLORS = ['#0f2b4c', '#e7b333', '#9ca3af'];
-
-  if (loading) return <p className="text-gray-500">Loading AGM metrics...</p>;
+  if (loading) return <p className="text-gray-500">Compiling advanced trust analytics...</p>;
 
   return (
     <div className="space-y-8">
-      {/* KPI Cards Grid */}
+      {/* KPI Highlight Rows */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Gross Realized Income</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Annual Realized Income</p>
           <p className="text-3xl font-bold text-gray-900 mt-1">£{totals.totalRevenue.toLocaleString()}</p>
         </div>
         <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Wear-and-Tear (Man-Nights)</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{totals.totalManNights} Nights</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Average Year-Round Occupancy</p>
+          <p className="text-3xl font-bold text-emerald-600 mt-1">{totals.avgOccupancy}%</p>
         </div>
         <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Cancellation Rate</p>
-          <p className="text-3xl font-bold text-red-600 mt-1">{totals.cancelRate}%</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Estimated Revenue Leakage</p>
+          <p className="text-3xl font-bold text-amber-600 mt-1">£{totals.lostRevenue.toLocaleString()}</p>
         </div>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm lg:col-span-2">
-          <h4 className="text-base font-bold text-gray-900 mb-1">Property Occupancy vs. Density</h4>
-          <p className="text-xs text-gray-400 mb-4">Comparing simple nights booked against full headcount wear-and-tear.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Chart 1: Percentage Occupancy & Unbooked Days Tracking */}
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+          <h4 className="text-base font-bold text-gray-900 mb-1">Calendar Occupancy Timeline</h4>
+          <p className="text-xs text-gray-400 mb-4">Identifies the most unbooked months and baseline usage density over time.</p>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={metrics.monthlyData}>
+              <BarChart data={metrics}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
+                <YAxis unit="%" tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value, name) => name === 'Occupancy %' ? `${value}%` : `${value} Days`} />
                 <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="Nights Booked" fill="#e7b333" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Man-Nights (Utilization)" fill="#0f2b4c" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Occupancy %" fill="#e7b333" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Vacancy Days" fill="#9ca3af" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
+        {/* Chart 2: Revenue Leakage vs Realized Income */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
-          <h4 className="text-base font-bold text-gray-900 mb-1">Revenue Stream Split</h4>
-          <p className="text-xs text-gray-400 mb-4">Total cash configurations split across guest categories.</p>
-          <div className="h-52 relative flex items-center justify-center">
+          <h4 className="text-base font-bold text-gray-900 mb-1">Financial Opportunity Loss (Revenue Leakage)</h4>
+          <p className="text-xs text-gray-400 mb-4">Visualizes where the trust loses asset value due to calendar vacancies.</p>
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={metrics.revenueByTier}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={70}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {metrics.revenueByTier.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
+              <LineChart data={metrics}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis unit="£" tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(value) => `£${value.toLocaleString()}`} />
-              </PieChart>
+                <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+                <Line type="monotone" dataKey="Realized Income" stroke="#0f2b4c" strokeWidth={2.5} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="Revenue Leakage" stroke="#dc2626" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 3 }} />
+              </LineChart>
             </ResponsiveContainer>
-          </div>
-          <div className="space-y-2 text-xs mt-4">
-            {metrics.revenueByTier.map((entry, idx) => (
-              <div key={idx} className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx] }} />
-                  <span className="text-gray-600">{entry.name}</span>
-                </div>
-                <span className="font-semibold text-gray-900">£{entry.value.toLocaleString()}</span>
-              </div>
-            ))}
           </div>
         </div>
       </div>
