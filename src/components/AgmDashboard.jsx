@@ -5,7 +5,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 export default function AgmDashboard() {
   const [allBookings, setAllBookings] = useState([]);
   const [metrics, setMetrics] = useState([]);
-  const [totals, setTotals] = useState({ totalRevenue: 0, avgOccupancy: 0, lostRevenue: 0, familyRevenue: 0, standardRevenue: 0 });
+  const [totals, setTotals] = useState({ 
+    totalRevenue: 0, 
+    avgOccupancy: 0, 
+    lostRevenue: 0, 
+    familyRevenue: 0, 
+    standardRevenue: 0,
+    cancellationLoss: 0 
+  });
   const [avgFootprint, setAvgFootprint] = useState({ adults: 0, grandchildren: 0, young: 0, ratePerNight: 40 });
   const [loading, setLoading] = useState(true);
   
@@ -15,10 +22,11 @@ export default function AgmDashboard() {
 
   useEffect(() => {
     async function fetchRawData() {
+      // Pull both approved and cancelled entries to run the intersection math
       const { data: bookings } = await supabase
         .from('bookings')
         .select('*')
-        .eq('status', 'approved');
+        .in('status', ['approved', 'cancelled']);
 
       if (bookings) {
         setAllBookings(bookings);
@@ -28,37 +36,34 @@ export default function AgmDashboard() {
     fetchRawData();
   }, []);
 
-  // Recalibrate dynamic timeline scale and dynamic leakage criteria
   useEffect(() => {
     if (allBookings.length === 0 && !loading) return;
 
-    // 1. Filter bookings by selected date range
+    // 1. Filter raw data down to your selected calendar scope
     let filtered = [...allBookings];
     if (startDate) filtered = filtered.filter(b => b.check_in >= startDate);
     if (endDate) filtered = filtered.filter(b => b.check_in <= endDate);
 
-    // 2. DYNAMIC OPPORTUNITY COST: Calculate the average footprint of actual visits inside this window
+    const approvedBookings = filtered.filter(b => b.status === 'approved');
+    const cancelledBookings = filtered.filter(b => b.status === 'cancelled');
+
+    // 2. DYNAMIC OPPORTUNITY COST: Calculate average group size for vacant night baselines
     let totalAdultsCount = 0;
     let totalGrandchildrenCount = 0;
     let totalYoungCount = 0;
     
-    filtered.forEach(b => {
+    approvedBookings.forEach(b => {
       totalAdultsCount += (b.adults || 0);
       totalGrandchildrenCount += (b.grandchildren_over21 || 0);
       totalYoungCount += ((b.children_16plus || 0) + (b.students || 0));
     });
 
-    const activeCount = filtered.length || 1;
+    const activeCount = approvedBookings.length || 1;
     const avgAdults = Math.round((totalAdultsCount / activeCount) * 10) / 10;
     const avgGrand = Math.round((totalGrandchildrenCount / activeCount) * 10) / 10;
     const avgYoung = Math.round((totalYoungCount / activeCount) * 10) / 10;
 
-    // Estimate a baseline cost per night for an average group size using typical non-family tiers
-    // Adult (£40), Grandchild (£40), Young Person (£12)
-    const derivedNightlyRate = Math.max(
-      (avgAdults * 40) + (avgGrand * 40) + (avgYoung * 12), 
-      40 // absolute floor safeguard
-    );
+    const derivedNightlyRate = Math.max((avgAdults * 40) + (avgGrand * 40) + (avgYoung * 12), 40);
 
     setAvgFootprint({
       adults: avgAdults,
@@ -67,7 +72,18 @@ export default function AgmDashboard() {
       ratePerNight: Math.round(derivedNightlyRate)
     });
 
-    // 3. Dynamically determine the start and end month bounds for the chart axis
+    // 3. Map out a Set of EVERY night that has a valid, approved stay
+    const approvedNightsSet = new Set();
+    approvedBookings.forEach(b => {
+      let currentNight = new Date(b.check_in);
+      const endCheckOut = new Date(b.check_out);
+      while (currentNight < endCheckOut) {
+        approvedNightsSet.add(currentNight.toISOString().split('T')[0]);
+        currentNight.setDate(currentNight.getDate() + 1);
+      }
+    });
+
+    // 4. Dynamically determine the start and end month bounds for the chart axis
     let minDate = startDate ? new Date(startDate) : null;
     let maxDate = endDate ? new Date(endDate) : null;
 
@@ -86,7 +102,6 @@ export default function AgmDashboard() {
     let currentIter = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
     const endBound = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
 
-    // 4. Generate dynamic month buckets using the calculated custom baseline potential
     const monthsMap = {};
     while (currentIter <= endBound) {
       const monthKey = currentIter.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
@@ -98,7 +113,7 @@ export default function AgmDashboard() {
         bookedDays: 0,
         actualRevenue: 0,
         guestNights: 0,
-        potentialRevenue: Math.round(daysInMonth * derivedNightlyRate) // Scaled directly to your custom group footprint
+        potentialRevenue: Math.round(daysInMonth * derivedNightlyRate)
       };
       
       currentIter.setMonth(currentIter.getMonth() + 1);
@@ -107,34 +122,54 @@ export default function AgmDashboard() {
     let totalRevenue = 0;
     let familyRevenue = 0;
     let standardRevenue = 0;
+    let cancellationLoss = 0;
 
-    // 5. Distribute records night-by-night
-    filtered.forEach(b => {
+    // 5. Distribute approved nights across axis
+    approvedBookings.forEach(b => {
       let currentNight = new Date(b.check_in);
       const endCheckOut = new Date(b.check_out);
       const totalGuests = (b.adults || 0) + (b.grandchildren_over21 || 0) + (b.children_16plus || 0) + (b.students || 0);
 
       totalRevenue += (b.total_paid || 0);
-      if (b.family_member === true) {
-        familyRevenue += (b.total_paid || 0);
-      } else {
-        standardRevenue += (b.total_paid || 0);
-      }
+      if (b.family_member === true) familyRevenue += (b.total_paid || 0);
+      else standardRevenue += (b.total_paid || 0);
 
       while (currentNight < endCheckOut) {
         const monthKey = currentNight.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
-        
         if (monthsMap[monthKey]) {
           monthsMap[monthKey].bookedDays += 1;
           monthsMap[monthKey].guestNights += totalGuests;
         }
-        
         currentNight.setDate(currentNight.getDate() + 1);
       }
 
       const checkInMonthKey = new Date(b.check_in).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
       if (monthsMap[checkInMonthKey]) {
         monthsMap[checkInMonthKey].actualRevenue += (b.total_paid || 0);
+      }
+    });
+
+    // 6. 🆕 UNROLL CANCELLED BOOKINGS & CHECK FOR INTERSECTIONS
+    cancelledBookings.forEach(b => {
+      let currentNight = new Date(b.check_in);
+      const endCheckOut = new Date(b.check_out);
+      
+      // Calculate what this specific group's nightly rate would have been based on their counts
+      const start = new Date(b.check_in);
+      const end = new Date(b.check_out);
+      const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
+      
+      // Pull total paid from snapshot, subtract cleaning fee fallback, and spread across nights
+      const nightlyValueLost = Math.max(((b.total_paid || 0) - (b.breakdown?.cleaning || 40)) / nights, 0);
+
+      while (currentNight < endCheckOut) {
+        const dateStr = currentNight.toISOString().split('T')[0];
+        
+        // If this cancelled date was NEVER successfully rebooked by an approved group
+        if (!approvedNightsSet.has(dateStr)) {
+          cancellationLoss += nightlyValueLost;
+        }
+        currentNight.setDate(currentNight.getDate() + 1);
       }
     });
 
@@ -156,7 +191,14 @@ export default function AgmDashboard() {
     const totalLostRevenue = monthlyDataArray.reduce((acc, curr) => acc + curr['Revenue Leakage'], 0);
     const avgOccupancy = monthlyDataArray.length ? Math.round(totalOccupancySum / monthlyDataArray.length) : 0;
 
-    setTotals({ totalRevenue, avgOccupancy, lostRevenue: totalLostRevenue, familyRevenue, standardRevenue });
+    setTotals({ 
+      totalRevenue, 
+      avgOccupancy, 
+      lostRevenue: totalLostRevenue, 
+      familyRevenue, 
+      standardRevenue, 
+      cancellationLoss: Math.round(cancellationLoss) 
+    });
     setMetrics(monthlyDataArray);
   }, [startDate, endDate, allBookings, loading]);
 
@@ -210,18 +252,23 @@ export default function AgmDashboard() {
       </div>
 
       {/* KPI Highlight Rows */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Filtered Income Yield</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">£{totals.totalRevenue.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">£{totals.totalRevenue.toLocaleString()}</p>
         </div>
-        <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
+        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Average Window Occupancy</p>
-          <p className="text-3xl font-bold text-emerald-600 mt-1">{totals.avgOccupancy}%</p>
+          <p className="text-2xl font-bold text-emerald-600 mt-1">{totals.avgOccupancy}%</p>
         </div>
-        <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Revenue Leakage</p>
-          <p className="text-3xl font-bold text-amber-600 mt-1">£{totals.lostRevenue.toLocaleString()}</p>
+        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">General Vacancy Loss</p>
+          <p className="text-2xl font-bold text-amber-600 mt-1">£{totals.lostRevenue.toLocaleString()}</p>
+        </div>
+        {/* 🆕 NEW KPI CARD FOR CRITICAL CANCELLATION METRIC */}
+        <div className="bg-red-50 p-4 rounded-lg border border-red-200 shadow-sm">
+          <p className="text-xs font-bold text-red-700 uppercase tracking-wider">Lost to Cancellations</p>
+          <p className="text-2xl font-bold text-red-600 mt-1">£{totals.cancellationLoss.toLocaleString()}</p>
         </div>
       </div>
 
@@ -270,7 +317,7 @@ export default function AgmDashboard() {
             </div>
           </div>
           <p className="text-xs text-gray-500 mt-4 leading-relaxed bg-gray-50 p-3 rounded border border-gray-100">
-            <strong>Calculation Insight:</strong> Revenue leakage tracks lost financial opportunity based on the house’s <em>actual historical booking footprint</em> for this window. Currently, your average group composition is <strong>{avgFootprint.adults} Adults</strong>, <strong>{avgFootprint.grandchildren} Grandchildren</strong>, and <strong>{avgFootprint.young} Young People</strong>, setting an objective baseline of <strong>£{avgFootprint.ratePerNight} / night</strong> to measure the opportunity cost of empty dates.
+            <strong>Calculation Insight:</strong> General vacancy loss tracks opportunity cost based on an average booking group profile of <strong>{avgFootprint.adults} Adults</strong>, setting a baseline of <strong>£{avgFootprint.ratePerNight}/night</strong>. The <em>Lost to Cancellations</em> card isolates nights explicitly dropped by group cancellations that were never filled by subsequent approved stays.
           </p>
         </div>
       </div>
