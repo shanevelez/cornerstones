@@ -73,11 +73,11 @@ export default function AgmDashboard() {
       ratePerNight: Math.round(derivedNightlyRate)
     });
 
-    // 3. Map out a Set of EVERY night that has a valid, approved stay
+    // 3. Map out a Set of EVERY night that has a valid, approved stay (Normalized to Noon)
     const approvedNightsSet = new Set();
     approvedBookings.forEach(b => {
-      let currentNight = new Date(b.check_in);
-      const endCheckOut = new Date(b.check_out);
+      let currentNight = new Date(b.check_in + 'T12:00:00');
+      const endCheckOut = new Date(b.check_out + 'T12:00:00');
       while (currentNight < endCheckOut) {
         approvedNightsSet.add(currentNight.toISOString().split('T')[0]);
         currentNight.setDate(currentNight.getDate() + 1);
@@ -85,13 +85,13 @@ export default function AgmDashboard() {
     });
 
     // 4. Dynamically determine the start and end month bounds for the chart axis
-    let minDate = startDate ? new Date(startDate) : null;
-    let maxDate = endDate ? new Date(endDate) : null;
+    let minDate = startDate ? new Date(startDate + 'T12:00:00') : null;
+    let maxDate = endDate ? new Date(endDate + 'T12:00:00') : null;
 
     if (!minDate || !maxDate) {
       allBookings.forEach(b => {
-        const bStart = new Date(b.check_in);
-        const bEnd = new Date(b.check_out);
+        const bStart = new Date(b.check_in + 'T12:00:00');
+        const bEnd = new Date(b.check_out + 'T12:00:00');
         if (!minDate || bStart < minDate) minDate = bStart;
         if (!maxDate || bEnd > maxDate) maxDate = bEnd;
       });
@@ -100,8 +100,8 @@ export default function AgmDashboard() {
     if (!minDate) minDate = new Date();
     if (!maxDate) maxDate = new Date();
 
-    let currentIter = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
-    const endBound = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
+    let currentIter = new Date(minDate.getFullYear(), minDate.getMonth(), 1, 12, 0, 0);
+    const endBound = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1, 12, 0, 0);
 
     const monthsMap = {};
     while (currentIter <= endBound) {
@@ -127,19 +127,17 @@ export default function AgmDashboard() {
     let highestNightRate = 0;
     let lowestNightRate = Infinity;
 
-    // 5. Distribute approved nights across axis and track absolute value ranges
+    // 5. Distribute approved nights across axis cleanly with normalized midday stamps
     approvedBookings.forEach(b => {
-      let currentNight = new Date(b.check_in);
-      const endCheckOut = new Date(b.check_out);
+      let currentNight = new Date(b.check_in + 'T12:00:00');
+      const endCheckOut = new Date(b.check_out + 'T12:00:00');
       const totalGuests = (b.adults || 0) + (b.grandchildren_over21 || 0) + (b.children_16plus || 0) + (b.students || 0);
 
-      // Value tracking
       totalRevenue += (b.total_paid || 0);
       if (b.family_member === true) familyRevenue += (b.total_paid || 0);
       else standardRevenue += (b.total_paid || 0);
 
-      // Track per-night record highs and lows (excluding cleaning charges)
-      const stayNights = Math.ceil((endCheckOut - new Date(b.check_in)) / (1000 * 60 * 60 * 24)) || 1;
+      const stayNights = Math.ceil((endCheckOut - currentNight) / (1000 * 60 * 60 * 24)) || 1;
       const cleanFee = b.breakdown?.cleaning || 40;
       const dynamicStayNightRate = Math.max(((b.total_paid || 0) - cleanFee) / stayNights, 0);
 
@@ -155,22 +153,21 @@ export default function AgmDashboard() {
         currentNight.setDate(currentNight.getDate() + 1);
       }
 
-      const checkInMonthKey = new Date(b.check_in).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+      const checkInMonthKey = new Date(b.check_in + 'T12:00:00').toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
       if (monthsMap[checkInMonthKey]) {
         monthsMap[checkInMonthKey].actualRevenue += (b.total_paid || 0);
       }
     });
 
-    // Clean up lowest limit value if no bookings processed
     if (lowestNightRate === Infinity) lowestNightRate = 0;
 
-    // 6. Unroll cancelled bookings
+    // 6. Unroll cancelled bookings (Normalized to Noon)
     cancelledBookings.forEach(b => {
-      let currentNight = new Date(b.check_in);
-      const endCheckOut = new Date(b.check_out);
+      let currentNight = new Date(b.check_in + 'T12:00:00');
+      const endCheckOut = new Date(b.check_out + 'T12:00:00');
       
-      const start = new Date(b.check_in);
-      const end = new Date(b.check_out);
+      const start = new Date(b.check_in + 'T12:00:00');
+      const end = new Date(b.check_out + 'T12:00:00');
       const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
       const nightlyValueLost = Math.max(((b.total_paid || 0) - (b.breakdown?.cleaning || 40)) / nights, 0);
 
@@ -281,12 +278,10 @@ export default function AgmDashboard() {
           <p className="text-xs font-bold text-red-700 uppercase tracking-wider">Cancel Loss</p>
           <p className="text-xl font-bold text-red-600 mt-1">£{totals.cancellationLoss.toLocaleString()}</p>
         </div>
-        {/* 🆕 HIGHEST NIGHT RATE CARD */}
         <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-200 shadow-sm">
           <p className="text-xs font-bold text-blue-700 uppercase tracking-wider">Max Night Rate</p>
           <p className="text-xl font-bold text-blue-800 mt-1">£{totals.highestNightRate}/n</p>
         </div>
-        {/* 🆕 LOWEST NIGHT RATE CARD */}
         <div className="bg-amber-50/40 p-4 rounded-lg border border-amber-200 shadow-sm">
           <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Min Night Rate</p>
           <p className="text-xl font-bold text-amber-800 mt-1">£{totals.lowestNightRate}/n</p>
