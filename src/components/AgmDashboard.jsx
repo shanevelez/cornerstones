@@ -8,7 +8,7 @@ export default function AgmDashboard() {
   const [totals, setTotals] = useState({ totalRevenue: 0, avgOccupancy: 0, lostRevenue: 0 });
   const [loading, setLoading] = useState(true);
   
-  // 🆕 Date Filter States
+  // Date Filter States
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -27,22 +27,42 @@ export default function AgmDashboard() {
     fetchRawData();
   }, []);
 
-  // 🆕 Recalculate metrics whenever raw bookings data or selected parameters change
+  // Dynamic timeline scale recalibration
   useEffect(() => {
     if (allBookings.length === 0 && !loading) return;
 
+    // 1. Filter bookings by selected date range
     let filtered = [...allBookings];
     if (startDate) filtered = filtered.filter(b => b.check_in >= startDate);
     if (endDate) filtered = filtered.filter(b => b.check_in <= endDate);
 
+    // 2. Dynamically determine the start and end month bounds for the chart axis
+    let minDate = startDate ? new Date(startDate) : null;
+    let maxDate = endDate ? new Date(endDate) : null;
+
+    // If no dates are selected, default strictly to the span of your existing data
+    if (!minDate || !maxDate) {
+      allBookings.forEach(b => {
+        const bStart = new Date(b.check_in);
+        const bEnd = new Date(b.check_out);
+        if (!minDate || bStart < minDate) minDate = bStart;
+        if (!maxDate || bEnd > maxDate) maxDate = bEnd;
+      });
+    }
+
+    // Fallback safeguard if database is completely empty
+    if (!minDate) minDate = new Date();
+    if (!maxDate) maxDate = new Date();
+
+    // Align to the first day of the months
+    let currentIter = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+    const endBound = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
+
+    // 3. Dynamically generate ONLY the required month buckets
     const monthsMap = {};
-    const today = new Date();
-    
-    // Fallback baseline generation window setup
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const monthKey = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
-      const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    while (currentIter <= endBound) {
+      const monthKey = currentIter.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+      const daysInMonth = new Date(currentIter.getFullYear(), currentIter.getMonth() + 1, 0).getDate();
       
       monthsMap[monthKey] = {
         name: monthKey,
@@ -52,10 +72,14 @@ export default function AgmDashboard() {
         guestNights: 0,
         potentialRevenue: daysInMonth * 40 
       };
+      
+      // Move forward 1 month
+      currentIter.setMonth(currentIter.getMonth() + 1);
     }
 
     let totalRevenue = 0;
 
+    // 4. Distribute the filtered records across the dynamic axis
     filtered.forEach(b => {
       const start = new Date(b.check_in);
       const end = new Date(b.check_out);
@@ -86,9 +110,9 @@ export default function AgmDashboard() {
       };
     });
 
-    const totalOccupancySum = monthlyDataArray.reduce((acc, curr) => acc + curr['Occupancy %'], 0);
+    const totalOccupancySum = monthlyDataArray.length ? monthlyDataArray.reduce((acc, curr) => acc + curr['Occupancy %'], 0) : 0;
     const totalLostRevenue = monthlyDataArray.reduce((acc, curr) => acc + curr['Revenue Leakage'], 0);
-    const avgOccupancy = Math.round(totalOccupancySum / monthlyDataArray.length);
+    const avgOccupancy = monthlyDataArray.length ? Math.round(totalOccupancySum / monthlyDataArray.length) : 0;
 
     setTotals({ totalRevenue, avgOccupancy, lostRevenue: totalLostRevenue });
     setMetrics(monthlyDataArray);
@@ -98,7 +122,7 @@ export default function AgmDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* 🆕 Filter Layout Controls Card */}
+      {/* Filter Layout Controls Card */}
       <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex flex-wrap items-center gap-4 text-sm">
         <span className="font-bold text-gray-700">Filter Analysis Window:</span>
         <div className="flex items-center gap-2">
