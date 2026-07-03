@@ -250,11 +250,11 @@ export default function AgmDashboard() {
         {/* Split Revenue Summary KPIs */}
         <div className="flex items-center gap-4 text-xs font-medium border-t md:border-t-0 md:border-l border-gray-200 pt-3 md:pt-0 md:pl-4">
           <div className="text-right">
-            <span className="text-gray-400 block uppercase tracking-wider text-[10px]">Family Core</span>
+            <span className="text-gray-400 block uppercase tracking-wider text-[10px]">Family</span>
             <span className="text-blue-600 font-bold text-sm">£{totals.familyRevenue.toLocaleString()}</span>
           </div>
           <div className="text-right">
-            <span className="text-gray-400 block uppercase tracking-wider text-[10px]">Standard Guest</span>
+            <span className="text-gray-400 block uppercase tracking-wider text-[10px]">Non-Family</span>
             <span className="text-amber-600 font-bold text-sm">£{totals.standardRevenue.toLocaleString()}</span>
           </div>
         </div>

@@ -16,12 +16,10 @@ const overlapsExceptEdges = (r, b) => {
   
   const overlaps = start < bEnd && end > bStart;
   if (!overlaps) return false;
-  // Touching edges are allowed
   if (sameDay(start, bEnd) || sameDay(end, bStart)) return false;
   return true;
 };
 
-// FIX: Format date as YYYY-MM-DD using LOCAL time (prevents the UTC shift bug)
 const formatLocalYMD = (d) => {
     if (!d) return null;
     const year = d.getFullYear();
@@ -42,11 +40,17 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   const [showCancel, setShowCancel] = useState(false);
   const [cancelInput, setCancelInput] = useState('');
   
-  // --- SINGLE DATE EDIT STATE ---
-  const [editMode, setEditMode] = useState(null); 
+  // --- EDIT MODES ---
+  const [editMode, setEditMode] = useState(null); // 'check_in', 'check_out', or 'guests'
   const [editRange, setEditRange] = useState({ from: undefined, to: undefined });
   const [blockedRanges, setBlockedRanges] = useState([]);
   const [dateError, setDateError] = useState(''); 
+
+  // 🆕 LOCAL STATES FOR VISITOR COUNTS EDITING
+  const [editAdults, setEditAdults] = useState(0);
+  const [editGrandchildren, setEditGrandchildren] = useState(0);
+  const [editChildren16Plus, setEditChildren16Plus] = useState(0);
+  const [editStudents, setEditStudents] = useState(0);
 
   const hasOpenedFromDeepLink = useRef(false);
   const [familyOverride, setFamilyOverride] = useState(null);
@@ -102,22 +106,25 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
         from: new Date(booking.check_in),
         to: new Date(booking.check_out)
     });
+    
+    // Initialize temporary edit states to matching record values
+    setEditAdults(booking.adults || 0);
+    setEditGrandchildren(booking.grandchildren_over21 || 0);
+    setEditChildren16Plus(booking.children_16plus || 0);
+    setEditStudents(booking.students || 0);
   };
 
   // 4. Calculate Blocked Dates
   useEffect(() => {
     if (!selected) return;
     const fetchBlockedDates = async () => {
-        // Fetch ALL approved bookings
         const { data, error } = await supabase
             .from('bookings')
             .select('id, check_in, check_out')
             .eq('status', 'approved');
 
         if (!error && data) {
-            // Javascript Filter: Ensure we NEVER include the current booking ID
             const others = data.filter(b => b.id !== selected.id);
-
             const mapped = others.map(b => ({
                 from: new Date(b.check_in),
                 to: new Date(b.check_out)
@@ -144,19 +151,22 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
     loadReason();
   }, [selected]);
 
-  // --- LOGIC: Handle Single Date Click ---
   const startEditing = (mode) => {
       setEditMode(mode);
       setDateError('');
-      // Reset to DB values so calendar matches reality
       setEditRange({
           from: new Date(selected.check_in),
           to: new Date(selected.check_out)
       });
+      if (mode === 'guests') {
+          setEditAdults(selected.adults || 0);
+          setEditGrandchildren(selected.grandchildren_over21 || 0);
+          setEditChildren16Plus(selected.children_16plus || 0);
+          setEditStudents(selected.students || 0);
+      }
   };
 
   const handleSingleDateSelect = (range, selectedDay) => {
-      // Use 'selectedDay' (the literal clicked date)
       const clickDate = selectedDay;
       if (!clickDate) return; 
 
@@ -168,9 +178,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
           proposedRange = { from: new Date(selected.check_in), to: clickDate };
       }
 
-      // 1. Validate Physics (Start < End)
       if (proposedRange.from >= proposedRange.to) {
-          // Update the visual selection anyway so you see what you clicked
           setEditRange(proposedRange); 
           setDateError(editMode === 'check_in' 
               ? "Check-in must be before Check-out." 
@@ -178,7 +186,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
           return;
       }
 
-      // 2. Validate Overlaps
       const illegal = blockedRanges.some((b) => overlapsExceptEdges(proposedRange, b));
       if (illegal) {
           setEditRange(proposedRange);
@@ -186,48 +193,95 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
           return;
       }
 
-      // 3. Valid
       setDateError('');
       setEditRange(proposedRange);
   };
 
-  const saveDateChange = async () => {
-      if (dateError || !editRange.from || !editRange.to) return;
-
+  // RECALCULATE REVENUE METRICS BASED ON RATES TABLE SOURCING
+  const saveBookingModifications = async (type) => {
       setActionLoading(true);
 
-      // FIX IS HERE: Convert to local "YYYY-MM-DD" string before sending
-      const checkInStr = formatLocalYMD(editRange.from);
-      const checkOutStr = formatLocalYMD(editRange.to);
+      const targetFrom = type === 'dates' ? editRange.from : new Date(selected.check_in);
+      const targetTo = type === 'dates' ? editRange.to : new Date(selected.check_out);
+      
+      const checkInStr = formatLocalYMD(targetFrom);
+      const checkOutStr = formatLocalYMD(targetTo);
+      const stayNights = Math.ceil((targetTo - targetFrom) / (1000 * 60 * 60 * 24)) || 1;
 
-      const { error } = await supabase
-        .from('bookings')
-        .update({
-            check_in: checkInStr,
-            check_out: checkOutStr
-        })
-        .eq('id', selected.id);
+      const currentAdults = type === 'guests' ? editAdults : (selected.adults || 0);
+      const currentGrandchildren = type === 'guests' ? editGrandchildren : (selected.grandchildren_over21 || 0);
+      const currentChildren16Plus = type === 'guests' ? editChildren16Plus : (selected.children_16plus || 0);
+      const currentStudents = type === 'guests' ? editStudents : (selected.students || 0);
 
-      setActionLoading(false);
+      try {
+        const { data: rateRecords, error: rateError } = await supabase.from('rates').select('*');
+        if (rateError || !rateRecords) throw new Error('Could not pull active configuration records.');
 
-      if (error) {
-          alert("Failed to update dates.");
-      } else {
-          // Update local state immediately
-          // (We use ISO string for React state, which handles the display correctly)
-          setSelected(prev => ({
-              ...prev,
-              check_in: editRange.from.toISOString(),
-              check_out: editRange.to.toISOString()
-          }));
-          setEditMode(null);
-          // Refresh table list
-          const updated = await supabase
-            .from('bookings')
-            .select('*')
-            .eq('status', filter)
-            .order('check_in', { ascending: true });
-          if (!updated.error) setBookings(updated.data);
+        const pricingMap = rateRecords.reduce((acc, curr) => {
+          acc[curr.key] = selected.family_member ? curr.family_rate : curr.standard_rate;
+          return acc;
+        }, {});
+
+        const adultRate = pricingMap['adult'] ?? 40;
+        const grandchildRate = pricingMap['grandchild'] ?? 40;
+        const youngRate = pricingMap['young_person'] ?? 12;
+        const cleanRate = pricingMap['cleaning_fee'] ?? 40;
+
+        const adultsTotal = currentAdults * adultRate * stayNights;
+        const grandTotal = currentGrandchildren * grandchildRate * stayNights;
+        const youngTotal = (currentChildren16Plus + currentStudents) * youngRate * stayNights;
+        const newGrandTotalPaid = adultsTotal + grandTotal + youngTotal + cleanRate;
+
+        const updatedBreakdown = {
+          cleaning: cleanRate,
+          adults: { count: currentAdults, rate: adultRate, total: adultsTotal },
+          grandchildren: { count: currentGrandchildren, rate: grandchildRate, total: grandTotal },
+          young: { count: (currentChildren16Plus + currentStudents), rate: youngRate, total: youngTotal }
+        };
+
+        const updatePayload = {
+          total_paid: newGrandTotalPaid,
+          breakdown: updatedBreakdown
+        };
+
+        if (type === 'dates') {
+          updatePayload.check_in = checkInStr;
+          updatePayload.check_out = checkOutStr;
+        } else if (type === 'guests') {
+          updatePayload.adults = currentAdults;
+          updatePayload.grandchildren_over21 = currentGrandchildren;
+          updatePayload.children_16plus = currentChildren16Plus;
+          updatePayload.students = currentStudents;
+        }
+
+        const { error: updateError } = await supabase
+          .from('bookings')
+          .update(updatePayload)
+          .eq('id', selected.id);
+
+        if (updateError) throw updateError;
+
+        setSelected(prev => ({
+            ...prev,
+            ...updatePayload,
+            check_in: targetFrom.toISOString(),
+            check_out: targetTo.toISOString()
+        }));
+        
+        setEditMode(null);
+
+        const updated = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('status', filter)
+          .order('check_in', { ascending: true });
+        if (!updated.error) setBookings(updated.data);
+
+      } catch (err) {
+        console.error(err);
+        alert("Failed to save mutations and reconcile pricing totals.");
+      } finally {
+        setActionLoading(false);
       }
   };
 
@@ -331,9 +385,9 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                 <span className="text-gray-500 font-normal">{selected.guest_email}</span>
               </div>
 
-              {/* DATE EDIT SECTION */}
+              {/* DATE VIEW / DATE EDIT BLOCK */}
               <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                {!editMode ? (
+                {editMode !== 'check_in' && editMode !== 'check_out' ? (
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                         <div className="flex gap-2">
@@ -353,13 +407,16 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                             <button onClick={() => startEditing('check_out')} className="text-sm text-blue-600 hover:underline">Edit</button>
                         )}
                     </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-100 mt-2">
+                        <span className="font-semibold text-sm text-gray-500">Current Computed Cost:</span>
+                        <span className="font-mono font-bold text-gray-900">£{selected.total_paid}</span>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
                     <h5 className="font-bold text-gray-700 mb-2">
                         {editMode === 'check_in' ? 'Change Check-in Date' : 'Change Check-out Date'}
                     </h5>
-                    
                     <div className="scale-90 origin-top">
                         <BookingCalendar 
                             bookings={blockedRanges}
@@ -368,37 +425,63 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                             defaultMonth={new Date(selected.check_in)} 
                         />
                     </div>
-
-                    {dateError && (
-                        <p className="text-red-600 text-sm font-semibold mt-2 text-center">{dateError}</p>
-                    )}
-
+                    {dateError && ( <p className="text-red-600 text-sm font-semibold mt-2 text-center">{dateError}</p> )}
                     <div className="flex gap-3 mt-4 w-full justify-center">
-                        <button onClick={() => setEditMode(null)} className="px-4 py-2 text-sm bg-gray-300 rounded hover:bg-gray-400">
-                            Cancel
-                        </button>
-                        <button onClick={saveDateChange} disabled={!!dateError} className={`px-4 py-2 text-sm rounded text-white ${!!dateError ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                            Save
-                        </button>
+                        <button onClick={() => setEditMode(null)} className="px-4 py-2 text-sm bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
+                        <button onClick={() => saveBookingModifications('dates')} disabled={!!dateError} className={`px-4 py-2 text-sm rounded text-white ${!!dateError ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}`}>Save</button>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* STATS & INFO */}
+              {/* STATS & INFO SECTION (Supports inline guest configurations) */}
               <div className="border-t pt-3 mt-3">
-                <p><span className="font-semibold">Adults:</span> {selected.adults}</p>
-                <p><span className="font-semibold">Grandchildren over 21:</span> {selected.grandchildren_over21}</p>
-                <p><span className="font-semibold">Children 16 +:</span> {selected.children_16plus}</p>
-                <p><span className="font-semibold">Students:</span> {selected.students}</p>
-                {selected.status === 'pending' && ['Admin', 'Approver'].includes(userRole) ? (
-                  <label className="flex items-center gap-2 mt-2">
-                    <input type="checkbox" checked={!!familyOverride} onChange={(e) => setFamilyOverride(e.target.checked)} />
-                    Family member
-                  </label>
+                {editMode !== 'guests' ? (
+                  <div className="relative">
+                    {['Admin', 'Approver'].includes(userRole) && selected.status !== 'cancelled' && (
+                      <button onClick={() => startEditing('guests')} className="absolute top-0 right-0 text-sm text-blue-600 hover:underline">Edit Occupants</button>
+                    )}
+                    <p><span className="font-semibold w-48 inline-block">Adults:</span> {selected.adults}</p>
+                    <p><span className="font-semibold w-48 inline-block">Grandchildren over 21:</span> {selected.grandchildren_over21}</p>
+                    <p><span className="font-semibold w-48 inline-block">Children 16 +:</span> {selected.children_16plus}</p>
+                    <p><span className="font-semibold w-48 inline-block">Students:</span> {selected.students}</p>
+                  </div>
                 ) : (
-                  <p><span className="font-semibold">Family member:</span> {selected.family_member ? 'Yes' : 'No'}</p>
+                  // 🆕 INLINE OCCUPANT EDITOR INPUT GRID
+                  <div className="bg-blue-50/40 p-4 rounded-md border border-blue-100 space-y-3">
+                    <h5 className="font-bold text-primary text-sm uppercase tracking-wider">Modify Occupant Headcounts</h5>
+                    
+                    <div className="grid grid-cols-2 gap-4 items-center text-sm">
+                      <label className="font-semibold">Adults:</label>
+                      <input type="number" min="0" value={editAdults} onChange={(e) => setEditAdults(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
+
+                      <label className="font-semibold">Grandchildren (21+):</label>
+                      <input type="number" min="0" value={editGrandchildren} onChange={(e) => setEditGrandchildren(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
+
+                      <label className="font-semibold">Children (16+):</label>
+                      <input type="number" min="0" value={editChildren16Plus} onChange={(e) => setEditChildren16Plus(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
+
+                      <label className="font-semibold">Students:</label>
+                      <input type="number" min="0" value={editStudents} onChange={(e) => setEditStudents(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
+                    </div>
+
+                    <div className="flex gap-2 justify-end pt-2">
+                      <button onClick={() => setEditMode(null)} className="px-3 py-1.5 text-xs bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
+                      <button onClick={() => saveBookingModifications('guests')} className="px-3 py-1.5 text-xs bg-primary text-white rounded hover:bg-yellow-600">Apply New Metrics</button>
+                    </div>
+                  </div>
                 )}
+
+                <div className="mt-3 pt-2 border-t border-gray-100">
+                  {selected.status === 'pending' && ['Admin', 'Approver'].includes(userRole) ? (
+                    <label className="flex items-center gap-2 mt-2">
+                      <input type="checkbox" checked={!!familyOverride} onChange={(e) => setFamilyOverride(e.target.checked)} />
+                      Family member
+                    </label>
+                  ) : (
+                    <p><span className="font-semibold">Family member:</span> {selected.family_member ? 'Yes' : 'No'}</p>
+                  )}
+                </div>
               </div>
 
               <div className="border-t pt-3 mt-3 flex justify-between items-center">
