@@ -18,9 +18,16 @@ export default function AgmDashboard() {
   const [avgFootprint, setAvgFootprint] = useState({ adults: 0, grandchildren: 0, young: 0, ratePerNight: 40 });
   const [loading, setLoading] = useState(true);
   
-  // Date Filter States
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+ // Date Filter States (Dynamically defaults to 1 Jan - 31 Dec of the current year)
+const [startDate, setStartDate] = useState(() => {
+  const currentYear = new Date().getFullYear();
+  return `${currentYear}-01-01`;
+});
+
+const [endDate, setEndDate] = useState(() => {
+  const currentYear = new Date().getFullYear();
+  return `${currentYear}-12-31`;
+});
 
   useEffect(() => {
     async function fetchRawData() {
