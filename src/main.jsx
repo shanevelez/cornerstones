@@ -9,7 +9,7 @@ import LocalRecs from "./pages/LocalRecs";
 import CancelBooking from './pages/CancelBooking';
 import Subscribe from './pages/Subscribe';
 import Unsubscribe from './pages/Unsubscribe';
-import AcceptInvite from './pages/AcceptInvite';[cite: 1]
+import AcceptInvite from './pages/AcceptInvite';
 
 
 createRoot(document.getElementById('root')).render(
