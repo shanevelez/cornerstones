@@ -46,7 +46,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
   const [blockedRanges, setBlockedRanges] = useState([]);
   const [dateError, setDateError] = useState(''); 
 
-  // 🆕 LOCAL STATES FOR VISITOR COUNTS EDITING
+  // LOCAL STATES FOR VISITOR COUNTS EDITING
   const [editAdults, setEditAdults] = useState(0);
   const [editGrandchildren, setEditGrandchildren] = useState(0);
   const [editChildren16Plus, setEditChildren16Plus] = useState(0);
@@ -107,7 +107,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
         to: new Date(booking.check_out)
     });
     
-    // Initialize temporary edit states to matching record values
     setEditAdults(booking.adults || 0);
     setEditGrandchildren(booking.grandchildren_over21 || 0);
     setEditChildren16Plus(booking.children_16plus || 0);
@@ -214,19 +213,33 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
       const currentStudents = type === 'guests' ? editStudents : (selected.students || 0);
 
       try {
-        const { data: rateRecords, error: rateError } = await supabase.from('rates').select('*');
+        // 1. Fetch rows matching the booking's specific classification
+        const { data: rateRecords, error: rateError } = await supabase
+          .from('rates')
+          .select('*')
+          .eq('is_family', selected.family_member);
+
         if (rateError || !rateRecords) throw new Error('Could not pull active configuration records.');
 
-        const pricingMap = rateRecords.reduce((acc, curr) => {
-          acc[curr.key] = selected.family_member ? curr.family_rate : curr.standard_rate;
+        // 2. Filter records by checking if the booking check_in falls within the start/end window
+        const activeRates = rateRecords.filter(r => {
+          const startValid = r.start_date <= checkInStr;
+          const endValid = !r.end_date || r.end_date >= checkInStr;
+          return startValid && endValid;
+        });
+
+        // Map categories cleanly to match your exact table structure strings
+        const pricingMap = activeRates.reduce((acc, curr) => {
+          acc[curr.guest_type] = curr.rate_per_night;
           return acc;
         }, {});
 
-        const adultRate = pricingMap['adult'] ?? 40;
-        const grandchildRate = pricingMap['grandchild'] ?? 40;
+        const adultRate = pricingMap['adult'] ?? (selected.family_member ? 32 : 40);
+        const grandchildRate = pricingMap['grandchild_over21'] ?? (selected.family_member ? 25 : 40);
         const youngRate = pricingMap['young_person'] ?? 12;
-        const cleanRate = pricingMap['cleaning_fee'] ?? 40;
+        const cleanRate = pricingMap['cleaning'] ?? 40;
 
+        // 3. Perform math calculations
         const adultsTotal = currentAdults * adultRate * stayNights;
         const grandTotal = currentGrandchildren * grandchildRate * stayNights;
         const youngTotal = (currentChildren16Plus + currentStudents) * youngRate * stayNights;
@@ -279,7 +292,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
 
       } catch (err) {
         console.error(err);
-        alert("Failed to save mutations and reconcile pricing totals.");
+        alert("Failed to save changes and look up correct date-bounded rates.");
       } finally {
         setActionLoading(false);
       }
@@ -417,6 +430,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                     <h5 className="font-bold text-gray-700 mb-2">
                         {editMode === 'check_in' ? 'Change Check-in Date' : 'Change Check-out Date'}
                     </h5>
+                    
                     <div className="scale-90 origin-top">
                         <BookingCalendar 
                             bookings={blockedRanges}
@@ -425,7 +439,9 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                             defaultMonth={new Date(selected.check_in)} 
                         />
                     </div>
+
                     {dateError && ( <p className="text-red-600 text-sm font-semibold mt-2 text-center">{dateError}</p> )}
+
                     <div className="flex gap-3 mt-4 w-full justify-center">
                         <button onClick={() => setEditMode(null)} className="px-4 py-2 text-sm bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
                         <button onClick={() => saveBookingModifications('dates')} disabled={!!dateError} className={`px-4 py-2 text-sm rounded text-white ${!!dateError ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}`}>Save</button>
@@ -434,7 +450,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                 )}
               </div>
 
-              {/* STATS & INFO SECTION (Supports inline guest configurations) */}
+              {/* STATS & OCCUPANTS INFORMATION SECTION */}
               <div className="border-t pt-3 mt-3">
                 {editMode !== 'guests' ? (
                   <div className="relative">
@@ -447,7 +463,6 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                     <p><span className="font-semibold w-48 inline-block">Students:</span> {selected.students}</p>
                   </div>
                 ) : (
-                  // 🆕 INLINE OCCUPANT EDITOR INPUT GRID
                   <div className="bg-blue-50/40 p-4 rounded-md border border-blue-100 space-y-3">
                     <h5 className="font-bold text-primary text-sm uppercase tracking-wider">Modify Occupant Headcounts</h5>
                     
