@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';[cite: 1]
+import { supabase } from '../supabaseClient';
 
 export default function AcceptInvite() {
   const [password, setPassword] = useState('');
