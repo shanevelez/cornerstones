@@ -9,7 +9,7 @@ import LocalRecs from "./pages/LocalRecs";
 import CancelBooking from './pages/CancelBooking';
 import Subscribe from './pages/Subscribe';
 import Unsubscribe from './pages/Unsubscribe';
-
+import AcceptInvite from './pages/AcceptInvite';[cite: 1]
 
 
 createRoot(document.getElementById('root')).render(
@@ -21,7 +21,8 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin" element={<Admin />} />
         <Route path="/cancel/:token" element={<CancelBooking />} />
        <Route path="/local-recs" element={<LocalRecs />} />
-       <Route path="/subscribe" element={<Subscribe />} />
+       <Route path="/accept-invite" element={<AcceptInvite />} />
+	   <Route path="/subscribe" element={<Subscribe />} />
        <Route path="/unsubscribe" element={<Unsubscribe />} />
       </Routes>
     </BrowserRouter>

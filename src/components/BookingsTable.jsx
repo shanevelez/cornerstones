@@ -257,22 +257,55 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
           breakdown: updatedBreakdown
         };
 
+        const auditChanges = {};
+
         if (type === 'dates') {
           updatePayload.check_in = checkInStr;
           updatePayload.check_out = checkOutStr;
+
+          auditChanges.before = { check_in: selected.check_in, check_out: selected.check_out, total_paid: selected.total_paid };
+          auditChanges.after = { check_in: checkInStr, check_out: checkOutStr, total_paid: newGrandTotalPaid };
         } else if (type === 'guests') {
           updatePayload.adults = currentAdults;
           updatePayload.grandchildren_over21 = currentGrandchildren;
           updatePayload.children_16plus = currentChildren16Plus;
           updatePayload.students = currentStudents;
+
+          auditChanges.before = { 
+            adults: selected.adults, 
+            grandchildren_over21: selected.grandchildren_over21, 
+            children_16plus: selected.children_16plus, 
+            students: selected.students,
+            total_paid: selected.total_paid
+          };
+          auditChanges.after = { 
+            adults: currentAdults, 
+            grandchildren_over21: currentGrandchildren, 
+            children_16plus: currentChildren16Plus, 
+            students: currentStudents,
+            total_paid: newGrandTotalPaid
+          };
         }
 
+        // 4. Update row transaction statement
         const { error: updateError } = await supabase
           .from('bookings')
           .update(updatePayload)
           .eq('id', selected.id);
 
         if (updateError) throw updateError;
+
+        // 5. Fire audit record insert statement
+        if (currentUserId) {
+          await supabase
+            .from('audit_logs')
+            .insert({
+              booking_id: selected.id,
+              user_id: currentUserId,
+              action_type: type === 'dates' ? 'update_dates' : 'update_guests',
+              changes: auditChanges
+            });
+        }
 
         setSelected(prev => ({
             ...prev,
@@ -292,7 +325,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
 
       } catch (err) {
         console.error(err);
-        alert("Failed to save changes and look up correct date-bounded rates.");
+        alert("Failed to save changes and log transaction history records.");
       } finally {
         setActionLoading(false);
       }
@@ -420,10 +453,14 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                             <button onClick={() => startEditing('check_out')} className="text-sm text-blue-600 hover:underline">Edit</button>
                         )}
                     </div>
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-100 mt-2">
-                        <span className="font-semibold text-sm text-gray-500">Current Computed Cost:</span>
-                        <span className="font-mono font-bold text-gray-900">£{selected.total_paid}</span>
-                    </div>
+                    
+                    {/* Guarded financial metric block restricted to Admin credentials */}
+                    {userRole === 'Admin' && (
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-100 mt-2">
+                          <span className="font-semibold text-sm text-gray-500">Current Computed Cost:</span>
+                          <span className="font-mono font-bold text-gray-900">£{selected.total_paid}</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
@@ -471,7 +508,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                       <input type="number" min="0" value={editAdults} onChange={(e) => setEditAdults(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
 
                       <label className="font-semibold">Grandchildren (21+):</label>
-                      <input type="number" min="0" value={editGrandchildren} onChange={(e) => setEditGrandchildren(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
+                      <input type="number" min="0" value={editGrandchildren} onChange={(e) => setEditGrandgrandchildren(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
 
                       <label className="font-semibold">Children (16+):</label>
                       <input type="number" min="0" value={editChildren16Plus} onChange={(e) => setEditChildren16Plus(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
