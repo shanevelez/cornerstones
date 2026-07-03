@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     const today = new Date();
 
     // ============================================================
-    // 🗓️ DATE CALCULATIONS (EXISTING)
+    // 🗓️ DATE CALCULATIONS
     // ============================================================
     
     // 1. Cleaner Trigger: 3 Days from now (Check-out date)
@@ -43,8 +43,6 @@ export default async function handler(req, res) {
     // ============================================================
     // 🧹 TASK 1: REMIND CLEANER (3 Days Before Checkout)
     // ============================================================
-    
-    // 🛡️ SKIP IN TEST MODE
     if (!isTestMode) {
       const { data: leavingBookings } = await supabase
         .from('bookings')
@@ -53,7 +51,6 @@ export default async function handler(req, res) {
         .eq('status', 'approved');
 
       if (leavingBookings && leavingBookings.length > 0) {
-        // Fetch cleaner(s)
         const { data: cleaners } = await supabase
           .from('users')
           .select('email, name')
@@ -61,14 +58,14 @@ export default async function handler(req, res) {
 
         if (cleaners && cleaners.length > 0) {
           const bookingListHtml = leavingBookings.map(b => 
-            `<li><strong>${b.guest_name}</strong> - Checking out on ${new Date(b.check_out).toLocaleDateString('en-GB')}</li>`
+            `<li><strong>${b.guest_name}</strong> - Checking out on ${new Date(b.check_out + 'T12:00:00').toLocaleDateString('en-GB')}</li>`
           ).join('');
 
           const emailPromises = cleaners.map(cleaner => {
             return resend.emails.send({
               from: 'Cornerstones Admin <admin@cornerstonescrantock.com>',
               to: cleaner.email,
-              subject: `🧹 Upcoming Checkout: ${new Date(cleanerTargetStr).toLocaleDateString('en-GB')}`,
+              subject: `🧹 Upcoming Checkout: ${new Date(cleanerTargetStr + 'T12:00:00').toLocaleDateString('en-GB')}`,
               html: `
                 <p>Hi ${cleaner.name || 'there'},</p>
                 <p>Just a heads-up that the following guests are checking out in 3 days:</p>
@@ -87,8 +84,6 @@ export default async function handler(req, res) {
     // ============================================================
     // 🏖️ TASK 2: REMIND GUESTS (7 Days Before Check-in)
     // ============================================================
-
-// 🛡️ SKIP IN TEST MODE
     if (!isTestMode) {
       const { data: arrivingBookings } = await supabase
         .from('bookings')
@@ -97,30 +92,51 @@ export default async function handler(req, res) {
         .eq('status', 'approved');
 
       if (arrivingBookings && arrivingBookings.length > 0) {
+        // Pull all rate rules into memory to process accurate history matches cleanly
+        const { data: rateRecords, error: ratesError } = await supabase
+          .from('rates')
+          .select('guest_type, rate_per_night, is_family, start_date, end_date');
+
+        if (ratesError || !rateRecords) throw new Error('Failed to find active configuration records database rows.');
+
         const guestPromises = arrivingBookings.map(booking => {
-          
-          const start = new Date(booking.check_in);
-          const end = new Date(booking.check_out);
-          const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+          const start = new Date(booking.check_in + 'T12:00:00');
+          const end = new Date(booking.check_out + 'T12:00:00');
+          const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
           const checkInYear = start.getFullYear();
           const bookingNumber = `${checkInYear}${String(booking.id).padStart(2, '0')}`;
 
-          // 🆕 PRO BUILD FIX: Pull directly from the snapshot saved during approval!
+          const isFamily = booking.family_member === true;
           const finalBalance = booking.total_paid || 0;
-          const snapBreakdown = booking.breakdown || {};
 
-          // 🆕 Build HTML directly from snap json items
+          // Filter rows dynamically using matching timestamp bounds
+          const activeRates = rateRecords.filter(r => {
+            if (r.is_family !== isFamily) return false;
+            const startValid = r.start_date <= booking.check_in;
+            const endValid = !r.end_date || r.end_date >= booking.check_in;
+            return startValid && endValid;
+          });
+
+          const rateMap = activeRates.reduce((acc, r) => {
+            acc[r.guest_type] = Number(r.rate_per_night);
+            return acc;
+          }, {});
+
+          const adultRate = rateMap['adult'] ?? (isFamily ? 32 : 40);
+          const grandChildRate = rateMap['grandchild_over21'] ?? (isFamily ? 25 : 40);
+          const youngPersonRate = rateMap['young_person'] ?? 12;
+          const CLEANING_FEE = rateMap['cleaning'] ?? 40;
+
           const pricingHtml = `
             <ul style="margin-left:20px; color:#333;">
-              <li>Adults (21+): ${snapBreakdown.adults?.count || 0} x £${snapBreakdown.adults?.rate || 0} per night</li>
-              ${snapBreakdown.grandchildren?.count > 0 ? `<li>Grandchildren (21+): ${snapBreakdown.grandchildren.count} x £${snapBreakdown.grandchildren.rate} per night</li>` : ''}
-              ${snapBreakdown.young?.count > 0 ? `<li>16+ / Students: ${snapBreakdown.young.count} x £${snapBreakdown.young.rate} per night</li>` : ''}
-              <li>Cleaning charge: £${snapBreakdown.cleaning || 40}</li>
+              <li>Adults (21+): ${booking.adults || 0} x £${adultRate} per night</li>
+              ${booking.grandchildren_over21 > 0 ? `<li>Grandchildren (21+): ${booking.grandchildren_over21} x £${grandChildRate} per night</li>` : ''}
+              ${((booking.children_16plus || 0) + (booking.students || 0)) > 0 ? `<li>16+ / Students: ${((booking.children_16plus || 0) + (booking.students || 0))} x £${youngPersonRate} per night</li>` : ''}
+              <li>Cleaning charge: £${CLEANING_FEE}</li>
               <li style="margin-top:10px; list-style:none;"><strong>Total for ${nights} nights: £${finalBalance}</strong></li>
             </ul>
           `;
 
-          // 5. Build HTML
           const html = `
           <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9f9f9;padding:32px;">
             <table style="max-width:640px;margin:auto;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #eee;">
@@ -144,11 +160,11 @@ export default async function handler(req, res) {
                     </tr>
                     <tr>
                       <td style="padding:8px;border:1px solid #ddd;"><strong>Arrive</strong></td>
-                      <td style="padding:8px;border:1px solid #ddd;">${new Date(booking.check_in).toLocaleDateString('en-GB')}</td>
+                      <td style="padding:8px;border:1px solid #ddd;">${start.toLocaleDateString('en-GB')}</td>
                     </tr>
                     <tr>
                       <td style="padding:8px;border:1px solid #ddd;"><strong>Depart</strong></td>
-                      <td style="padding:8px;border:1px solid #ddd;">${new Date(booking.check_out).toLocaleDateString('en-GB')}</td>
+                      <td style="padding:8px;border:1px solid #ddd;">${end.toLocaleDateString('en-GB')}</td>
                     </tr>
                     <tr>
                       <td style="padding:8px;border:1px solid #ddd;"><strong>Total Balance</strong></td>
@@ -182,7 +198,7 @@ export default async function handler(req, res) {
 
                   <h3 style="color:#0f2b4c;margin-top:28px;">During your stay</h3>
                   <ul style="margin-left:20px;">
-                    ${!(booking.family_member === true) ? '<li>Bring your own towels (bedding provided).</li>' : ''}
+                    ${!isFamily ? '<li>Bring your own towels (bedding provided).</li>' : ''}
                     <li>Bins collected early Monday — put out by 7 am at the bottom of the drive.</li>
                     <li>See the folder in the house for local info and parking guidance.</li>
                     <li>EV charging points – Crantock Village Hall and Esso garage (Newquay Road).</li>
@@ -224,52 +240,39 @@ export default async function handler(req, res) {
     // ============================================================
     // ☀️ TASK 3: SEIZE THE RAY (Wednesdays Only)
     // ============================================================
-    
-    // UPDATED: Only run if today is Wednesday (3) OR if isTestMode is true
     if (today.getDay() === 3 || isTestMode) {
-      
-      // 1. Calculate the Target Window (Sat to Fri)
-      // UPDATED: Now targeting THIS coming Saturday (3 days away) for higher accuracy
       const targetSat = new Date(today);
       targetSat.setDate(today.getDate() + 3);
       
       const targetFri = new Date(targetSat);
       targetFri.setDate(targetSat.getDate() + 6);
 
-      // Strings for DB checks
       const checkInStr = targetSat.toISOString().split('T')[0];
-      const checkOutStr = new Date(targetSat.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // Next Sat
+      const checkOutStr = new Date(targetSat.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; 
       
-      // Formatted Date for Email Header
       const dateOptionsLong = { weekday: 'long', day: 'numeric', month: 'long' };
       const headerDateRange = `${targetSat.toLocaleDateString('en-GB', dateOptionsLong)} – ${targetFri.toLocaleDateString('en-GB', dateOptionsLong)}`;
 
-      // 2. Fetch Existing Bookings for this Week (Overlap check)
       const { data: bookings } = await supabase
         .from('bookings')
         .select('check_in, check_out')
         .eq('status', 'approved')
         .or(`check_in.lt.${checkOutStr},check_out.gt.${checkInStr}`); 
 
-      // Helper: Is a specific date booked? (Occupancy Logic)
       const isDateBooked = (dateObj) => {
         const dateStr = dateObj.toISOString().split('T')[0];
         if (!bookings) return false;
         return bookings.some(b => b.check_in <= dateStr && b.check_out > dateStr);
       };
 
-      // 3. Fetch Weather (Open-Meteo)
-      // Note: We use 'forecast_days=16' to be safe, but we only use days 3-10
       const weatherRes = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=50.40&longitude=-5.11&daily=weathercode,temperature_2m_max&timezone=Europe%2FLondon&forecast_days=16`
       );
       const weatherData = await weatherRes.json();
 
-      // 4. Build Forecast
       const forecast = [];
       let availableSunnyDays = 0;
 
-      // Icon Mapping
       const getWeatherIcon = (code) => {
         if ([0].includes(code)) return `${ICON_BASE}/sun.png`;             
         if ([1, 2].includes(code)) return `${ICON_BASE}/partcloud.png`;    
@@ -278,7 +281,6 @@ export default async function handler(req, res) {
         return `${ICON_BASE}/storm.png`; 
       };
 
-      // Loop 7 days (Sat - Fri)
       for (let i = 0; i < 7; i++) {
         const currentDay = new Date(targetSat);
         currentDay.setDate(targetSat.getDate() + i);
@@ -304,12 +306,9 @@ export default async function handler(req, res) {
         }
       }
 
-      // 5. Trigger Email if 3+ Sunny & Available Days OR if isTestMode
       if (availableSunnyDays >= 3 || isTestMode) {
-        
         let subscribers = [];
 
-        // 🛡️ SWAP SUBSCRIBERS IN TEST MODE
         if (isTestMode) {
           subscribers = [{ email: TEST_EMAIL, name: 'Shane (Test)', id: 'TEST_USER' }];
         } else {
@@ -321,78 +320,62 @@ export default async function handler(req, res) {
         }
 
         if (subscribers && subscribers.length > 0) {
-          
-// Generate Grid HTML
           const weatherGridHtml = forecast.map(day => {
-            // A: BOOKED
             if (day.isBooked) {
               return `
                 <td style="width:14.2%; text-align:center; vertical-align:bottom; background-color:#f3f4f6; border-radius:4px; padding:8px 0; opacity:0.6;">
                    <div style="font-size:10px; font-weight:bold; color:#999; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#999; margin-bottom:4px;">${day.dateShort}</div>
-                   
                    <div style="padding: 5px 0;">
                      <img src="${day.icon}" style="display:block; margin:0 auto; width:50%; max-width:22px; height:auto; filter:grayscale(100%); opacity:0.5;" />
                    </div>
-
                    <div style="font-size:9px; font-weight:bold; color:#fff; background:#9ca3af; padding:2px 4px; border-radius:3px; display:inline-block; margin-top:2px;">BOOKED</div>
                 </td>`;
             }
-            // B: SUNNY & FREE
             if (day.isSunny) {
               return `
                 <td style="width:14.2%; text-align:center; vertical-align:bottom; background-color:#fffbeb; border-radius:6px; border:2px solid #fcd34d; padding:8px 0;">
                    <div style="font-size:10px; font-weight:bold; color:#b45309; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#b45309; margin-bottom:4px;">${day.dateShort}</div>
-                   
                    <div style="padding: 5px 0;">
                       <img src="${day.icon}" style="display:block; margin:0 auto; width:60%; max-width:42px; height:auto;" />
                    </div>
-
                    <div style="font-size:14px; font-weight:bold; color:#b45309; margin-top:2px;">${day.temp}°</div>
                 </td>`;
             }
-            // C: DULL & FREE
             return `
                 <td style="width:14.2%; text-align:center; vertical-align:bottom; border:1px solid #eee; border-radius:4px; padding:8px 0;">
                    <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">${day.dayShort}</div>
                    <div style="font-size:10px; color:#999; margin-bottom:4px;">${day.dateShort}</div>
-                   
                    <div style="padding: 5px 0;">
                       <img src="${day.icon}" style="display:block; margin:0 auto; width:60%; max-width:42px; height:auto;" />
                    </div>
-
                    <div style="font-size:14px; font-weight:bold; color:#0f2b4c; margin-top:2px;">${day.temp}°</div>
                 </td>`;
           }).join('');
 
-          // Send to Subscribers
           const emailPromises = subscribers.map(sub => {
             return resend.emails.send({
               from: 'Seize the Ray <booking@cornerstonescrantock.com>',
               to: sub.email,
-              subject: `☀️ Seize the Ray: Sunny week ahead in Crantock!`,
+              subject: `${isTestMode ? '[TEST] ' : ''}☀️ Seize the Ray: Sunny week ahead in Crantock!`,
               html: `
               <!DOCTYPE html>
               <html>
               <head><meta charset="utf-8"><title>Seize the Ray</title></head>
               <body style="margin:0; padding:0; background-color:#f4f4f4;">
                 <div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif; background:#f9f9f9; padding:40px 20px;">
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; margin:auto; background:#fff; border-radius:8px; overflow:hidden; border:1px solid #e5e7eb; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; margin:auto; background:#fff; border-radius:8px; overflow:hidden; border:1px solid #e5e7eb;">
                     <tr>
                       <td style="text-align:center; background-color:#fff; padding: 20px 0 0 0;">
-                        <img src="${ICON_BASE}/Logo.png" alt="Cornerstones" width="180" style="width:180px; display:block; margin: 0 auto; border:none;" />
+                        <img src="${ICON_BASE}/Logo.png" alt="Cornerstones" width="180" style="width:180px; display:block; margin: 0 auto;" />
                       </td>
                     </tr>
                     <tr>
                       <td style="padding:5px 32px 10px 32px; color:#333; line-height:1.6; text-align:center;">
                         <h2 style="color:#0f2b4c; margin-top:0; font-size:24px;">The Sun is Out! ☀️</h2>
-                        <p style="font-size:16px; color:#555; margin-bottom: 5px;">
-                          Hi ${sub.name || 'Friend'}, we've spotted a sunny gap in the calendar next week.
-                        </p>
-                        <p style="font-size:16px; color:#0f2b4c; margin: 10px 0;">
-                          <strong>${headerDateRange}</strong>
-                        </p>
+                        <p style="font-size:16px; color:#555;">Hi ${sub.name || 'Friend'}, we've spotted a sunny gap in the calendar next week.</p>
+                        <p style="font-size:16px; color:#0f2b4c; margin: 10px 0;"><strong>${headerDateRange}</strong></p>
                       </td>
                     </tr>
                     <tr>
@@ -403,10 +386,8 @@ export default async function handler(req, res) {
                       </td>
                     </tr>
                     <tr>
-                       <td style="padding:0 32px 40px 32px; text-align:center; border-bottom:1px solid #f0f0f0;">
-                          <a href="https://www.cornerstonescrantock.com" style="background-color:#f4b400; color:#0f2b4c; padding:14px 32px; text-decoration:none; font-weight:bold; border-radius:6px; font-size:16px; display:inline-block;">
-                             Visit Cornerstones
-                          </a>
+                       <td style="padding:0 32px 40px 32px; text-align:center;">
+                          <a href="https://www.cornerstonescrantock.com" style="background-color:#f4b400; color:#0f2b4c; padding:14px 32px; text-decoration:none; font-weight:bold; border-radius:6px; display:inline-block;">Visit Cornerstones</a>
                        </td>
                     </tr>
                     <tr>
@@ -418,9 +399,8 @@ export default async function handler(req, res) {
                   </table>
                 </div>
               </body>
-              </html>
-              `
-            });
+              </html>`
+            ]);
           });
 
           await Promise.all(emailPromises);
@@ -428,12 +408,10 @@ export default async function handler(req, res) {
         }
       }
     } else {
-      results.ray_skipped = true; // Not Wednesday
+      results.ray_skipped = true;
     }
 
-    // ✅ Done
     return res.status(200).json({ success: true, ...results });
-
   } catch (err) {
     console.error('Cron error:', err);
     return res.status(500).json({ error: err.message });

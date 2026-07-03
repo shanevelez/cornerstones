@@ -29,42 +29,47 @@ export default async function handler(req, res) {
 
     const { guest_name, guest_email, check_in, check_out, id: booking_id, cancel_token } = booking;
   
-    // ---- 2️⃣ Pricing & Dynamic Calculation Logic ----
-    const start = new Date(check_in);
-    const end = new Date(check_out);
-    const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    // ---- 2️⃣ Pricing & Dynamic Calculation Logic (Normalized to Noon) ----
+    const start = new Date(check_in + 'T12:00:00');
+    const end = new Date(check_out + 'T12:00:00');
+    const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
     
     const isFamily = booking.family_member === true;
 
-    // 🆕 Fetch the active rates relative to historical check-in window
-    const { data: activeRates, error: ratesError } = await supabase
+    // 🆕 FIXED: Pull all rows for the classification and filter cleanly via JS to bypass the broken string parser
+    const { data: rateRecords, error: ratesError } = await supabase
       .from('rates')
-      .select('guest_type, rate_per_night')
-      .eq('is_family', isFamily)
-      .lte('start_date', check_in)
-      .or(`end_date.is.null,end_date.gte.${check_in}`);
+      .select('guest_type, rate_per_night, start_date, end_date')
+      .eq('is_family', isFamily);
 
-    if (ratesError || !activeRates || activeRates.length === 0) {
-      throw new Error('Failed to find active rates for this check-in timeline.');
+    if (ratesError || !rateRecords || rateRecords.length === 0) {
+      throw new Error('Failed to find active configuration records.');
     }
 
-    // Map rows to clean variables
+    // Isolate the active rows using local date string configurations
+    const activeRates = rateRecords.filter(r => {
+      const startValid = r.start_date <= check_in;
+      const endValid = !r.end_date || r.end_date >= check_in;
+      return startValid && endValid;
+    });
+
+    // Map rows to clean lookup keys
     const rateMap = activeRates.reduce((acc, r) => {
       acc[r.guest_type] = Number(r.rate_per_night);
       return acc;
     }, {});
 
-    const adultRate = rateMap['adult'] || (isFamily ? 32 : 40);
-    const grandChildRate = rateMap['grandchild_over21'] || (isFamily ? 25 : 40);
-    const youngPersonRate = rateMap['young_person'] || 12;
-    const CLEANING_FEE = rateMap['cleaning'] || 40;
+    const adultRate = rateMap['adult'] ?? (isFamily ? 32 : 40);
+    const grandChildRate = rateMap['grandchild_over21'] ?? (isFamily ? 25 : 40);
+    const youngPersonRate = rateMap['young_person'] ?? 12;
+    const CLEANING_FEE = rateMap['cleaning'] ?? 40;
 
     const adultTotal = (booking.adults || 0) * adultRate * nights;
     const grandChildTotal = (booking.grandchildren_over21 || 0) * grandChildRate * nights;
     const youngTotal = ((booking.children_16plus || 0) + (booking.students || 0)) * youngPersonRate * nights;
     const finalBalance = adultTotal + grandChildTotal + youngTotal + CLEANING_FEE;
 
-    // 🆕 Save the calculation snapshot right into the booking row forever
+    // Save the calculation snapshot right into the booking row forever
     if (status === 'approved') {
       await supabase
         .from('bookings')
@@ -80,7 +85,7 @@ export default async function handler(req, res) {
         .eq('id', bookingId);
     }
 
-    const checkInYear = new Date(check_in).getFullYear();
+    const checkInYear = new Date(check_in + 'T12:00:00').getFullYear();
     const bookingNumber = `${checkInYear}${String(booking_id).padStart(2, '0')}`;
 
     const pricingHtml = `
@@ -122,11 +127,11 @@ export default async function handler(req, res) {
                   </tr>
                   <tr>
                     <td style="padding:8px;border:1px solid #ddd;"><strong>Arrive</strong></td>
-                    <td style="padding:8px;border:1px solid #ddd;">${new Date(check_in).toLocaleDateString('en-GB')}</td>
+                    <td style="padding:8px;border:1px solid #ddd;">${new Date(check_in + 'T12:00:00').toLocaleDateString('en-GB')}</td>
                   </tr>
                   <tr>
                     <td style="padding:8px;border:1px solid #ddd;"><strong>Depart</strong></td>
-                    <td style="padding:8px;border:1px solid #ddd;">${new Date(check_out).toLocaleDateString('en-GB')}</td>
+                    <td style="padding:8px;border:1px solid #ddd;">${new Date(check_out + 'T12:00:00').toLocaleDateString('en-GB')}</td>
                   </tr>
                   <tr>
                     <td style="padding:8px;border:1px solid #ddd;"><strong>Total Balance</strong></td>
@@ -204,7 +209,7 @@ export default async function handler(req, res) {
                 <p>
                   Thank you for your interest in staying at <strong>Cornerstones Crantock</strong>.
                   Unfortunately, your recent booking request for
-                  <strong>${new Date(check_in).toLocaleDateString('en-GB')} – ${new Date(check_out).toLocaleDateString('en-GB')}</strong>
+                  <strong>${new Date(check_in + 'T12:00:00').toLocaleDateString('en-GB')} – ${new Date(check_out + 'T12:00:00').toLocaleDateString('en-GB')}</strong>
                   was <span style="color:#c00;font-weight:bold;">not approved</span>.
                 </p>
 
@@ -247,8 +252,8 @@ export default async function handler(req, res) {
           <div style="font-family:sans-serif; border: 1px solid #eee; padding: 20px; max-width: 600px;">
             <h2 style="color: #0f2b4c;">New Booking Approved</h2>
             <p>A new stay has been confirmed for Cornerstones.</p>
-            <p><strong>Check-in:</strong> ${new Date(check_in).toLocaleDateString('en-GB')}</p>
-            <p><strong>Check-out:</strong> ${new Date(check_out).toLocaleDateString('en-GB')}</p>
+            <p><strong>Check-in:</strong> ${new Date(check_in + 'T12:00:00').toLocaleDateString('en-GB')}</p>
+            <p><strong>Check-out:</strong> ${new Date(check_out + 'T12:00:00').toLocaleDateString('en-GB')}</p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
             <p>View all upcoming bookings on the admin dashboard:</p>
             <a href="https://www.cornerstonescrantock.com/admin" 
@@ -261,7 +266,7 @@ export default async function handler(req, res) {
         await resend.emails.send({
           from: 'Cornerstones System <system@cornerstonescrantock.com>',
           to: cleanerEmails,
-          subject: `New Cleaning Required: ${new Date(check_in).toLocaleDateString('en-GB')}`,
+          subject: `New Cleaning Required: ${new Date(check_in + 'T12:00:00').toLocaleDateString('en-GB')}`,
           html: cleanerHtml,
         });
       }
