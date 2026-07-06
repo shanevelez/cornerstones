@@ -508,7 +508,7 @@ function BookingsTable({ deepLinkId, setDeepLinkId, userRole }) {
                       <input type="number" min="0" value={editAdults} onChange={(e) => setEditAdults(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
 
                       <label className="font-semibold">Grandchildren (21+):</label>
-                      <input type="number" min="0" value={editGrandchildren} onChange={(e) => setEditGrandgrandchildren(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
+                      <input type="number" min="0" value={editGrandchildren} onChange={(e) => setEditGrandchildren(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
 
                       <label className="font-semibold">Children (16+):</label>
                       <input type="number" min="0" value={editChildren16Plus} onChange={(e) => setEditChildren16Plus(parseInt(e.target.value) || 0)} className="border p-1.5 bg-white rounded text-center w-20 shadow-sm" />
