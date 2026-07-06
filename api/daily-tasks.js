@@ -46,7 +46,7 @@ export default async function handler(req, res) {
 
     // 2. Guest Trigger: 7 Days from now (Check-in date)
     const guestDate = new Date(today);
-    guestDate.setDate(today.getDate() + 7);
+    guestDate.setDate(today.getDate() + 6);
     const guestTargetStr = guestDate.toISOString().split('T')[0];
     console.log(`Calculated guestTargetStr (7 days out): "${guestTargetStr}"`);
 
