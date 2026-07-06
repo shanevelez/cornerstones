@@ -13,18 +13,26 @@ const ICON_BASE = 'https://www.cornerstonescrantock.com/images';
 const TEST_EMAIL = 'shanevelez@gmail.com';
 
 export default async function handler(req, res) {
+  console.log('--- CRON INITIALIZED ---');
+  console.log('Query parameters received:', req.query);
+  console.log('Authorization Header Present:', !!req.headers['authorization']);
+
   // 🔐 1. Security Check (Vercel Cron)
   const authHeader = req.headers['authorization'];
   if (req.query.key !== process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    console.warn('❌ Security Check Failed: Unauthorized access attempt.');
     return res.status(401).json({ error: 'Unauthorized' });
   }
+  console.log('✅ Security Check Passed.');
 
   // 🛠️ DETECT TEST MODE
   const isTestMode = req.query.test === 'true';
+  console.log('Execution Mode:', isTestMode ? 'TEST' : 'LIVE');
 
   try {
     const results = { cleaner: 0, guests: 0, ray_alerts: 0, ray_skipped: false, mode: isTestMode ? 'TEST' : 'LIVE' };
     const today = new Date();
+    console.log(`Current Clock Time (today): ${today.toISOString()} | Local: ${today.toString()}`);
 
     // ============================================================
     // 🗓️ DATE CALCULATIONS
@@ -34,34 +42,50 @@ export default async function handler(req, res) {
     const cleanerDate = new Date(today);
     cleanerDate.setDate(today.getDate() + 3);
     const cleanerTargetStr = cleanerDate.toISOString().split('T')[0];
+    console.log(`Calculated cleanerTargetStr (3 days out): "${cleanerTargetStr}"`);
 
     // 2. Guest Trigger: 7 Days from now (Check-in date)
     const guestDate = new Date(today);
     guestDate.setDate(today.getDate() + 7);
     const guestTargetStr = guestDate.toISOString().split('T')[0];
+    console.log(`Calculated guestTargetStr (7 days out): "${guestTargetStr}"`);
 
     // ============================================================
     // 🧹 TASK 1: REMIND CLEANER (3 Days Before Checkout)
     // ============================================================
+    console.log('--- STARTING TASK 1: CLEANER REMINDERS ---');
     if (!isTestMode) {
-      const { data: leavingBookings } = await supabase
+      console.log(`Querying bookings where check_out = "${cleanerTargetStr}" AND status = "approved"`);
+      const { data: leavingBookings, error: cleanerBookingsError } = await supabase
         .from('bookings')
         .select('*')
         .eq('check_out', cleanerTargetStr)
         .eq('status', 'approved');
 
+      if (cleanerBookingsError) console.error('Supabase error fetching leaving bookings:', cleanerBookingsError);
+      console.log('Leaving bookings retrieved count:', leavingBookings ? leavingBookings.length : 0);
+
       if (leavingBookings && leavingBookings.length > 0) {
-        const { data: cleaners } = await supabase
+        console.log('Leaving Bookings Raw Data:', JSON.stringify(leavingBookings, null, 2));
+        console.log('Querying users where role = "Cleaner"');
+        
+        const { data: cleaners, error: cleanersError } = await supabase
           .from('users')
           .select('email, name')
           .eq('role', 'Cleaner');
 
+        if (cleanersError) console.error('Supabase error fetching cleaners:', cleanersError);
+        console.log('Cleaners retrieved count:', cleaners ? cleaners.length : 0);
+
         if (cleaners && cleaners.length > 0) {
+          console.log('Cleaners Raw Data:', JSON.stringify(cleaners, null, 2));
+          
           const bookingListHtml = leavingBookings.map(b => 
             `<li><strong>${b.guest_name}</strong> - Checking out on ${new Date(b.check_out + 'T12:00:00').toLocaleDateString('en-GB')}</li>`
           ).join('');
 
           const emailPromises = cleaners.map(cleaner => {
+            console.log(`Queueing cleaner email to: ${cleaner.email}`);
             return resend.emails.send({
               from: 'Cornerstones Admin <admin@cornerstonescrantock.com>',
               to: cleaner.email,
@@ -75,57 +99,89 @@ export default async function handler(req, res) {
             });
           });
 
+          console.log('Resolving cleaner email promises...');
           await Promise.all(emailPromises);
+          console.log('All cleaner emails processed.');
           results.cleaner = leavingBookings.length;
         }
       }
+    } else {
+      console.log('Skipping Task 1: Cleaner Reminders are disabled in Test Mode.');
     }
 
     // ============================================================
     // 🏖️ TASK 2: REMIND GUESTS (7 Days Before Check-in)
     // ============================================================
+    console.log('--- STARTING TASK 2: GUEST REMINDERS ---');
     if (!isTestMode) {
-      const { data: arrivingBookings } = await supabase
+      console.log(`Querying bookings where check_in = "${guestTargetStr}" AND status = "approved"`);
+      const { data: arrivingBookings, error: guestBookingsError } = await supabase
         .from('bookings')
         .select('*')
         .eq('check_in', guestTargetStr)
         .eq('status', 'approved');
 
+      if (guestBookingsError) console.error('Supabase error fetching arriving bookings:', guestBookingsError);
+      console.log('Arriving bookings retrieved count:', arrivingBookings ? arrivingBookings.length : 0);
+
       if (arrivingBookings && arrivingBookings.length > 0) {
-        // Pull all rate rules into memory to process accurate history matches cleanly
+        console.log('Arriving Bookings Raw Data:', JSON.stringify(arrivingBookings, null, 2));
+        console.log('Querying public.rates configuration rows...');
+        
         const { data: rateRecords, error: ratesError } = await supabase
           .from('rates')
           .select('guest_type, rate_per_night, is_family, start_date, end_date');
 
-        if (ratesError || !rateRecords) throw new Error('Failed to find active configuration records database rows.');
+        if (ratesError) console.error('Supabase error fetching rate records:', ratesError);
+        console.log('Rate records database rows count:', rateRecords ? rateRecords.length : 0);
 
-        const guestPromises = arrivingBookings.map(booking => {
+        if (ratesError || !rateRecords) {
+          console.error('Task 2 Aborted: Crashing via throw rule due to missing configuration records.');
+          throw new Error('Failed to find active configuration records database rows.');
+        }
+        console.log('Rates Records Raw Data:', JSON.stringify(rateRecords, null, 2));
+
+        const guestPromises = arrivingBookings.map((booking, idx) => {
+          console.log(`Processing mapping logic for booking index [${idx}], ID: ${booking.id}, Guest: ${booking.guest_name}`);
+          
           const start = new Date(booking.check_in + 'T12:00:00');
           const end = new Date(booking.check_out + 'T12:00:00');
+          console.log(`Mapped ISO Date Objects - Start: ${start.toISOString()} | End: ${end.toISOString()}`);
+          
           const nights = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1;
+          console.log(`Calculated nights duration parameter: ${nights}`);
+          
           const checkInYear = start.getFullYear();
           const bookingNumber = `${checkInYear}${String(booking.id).padStart(2, '0')}`;
+          console.log(`Generated booking identifier hash string: ${bookingNumber}`);
 
           const isFamily = booking.family_member === true;
           const finalBalance = booking.total_paid || 0;
+          console.log(`Flags checked - isFamily: ${isFamily} | total_paid parsed balance: ${finalBalance}`);
 
-          // Filter rows dynamically using matching timestamp bounds
-          const activeRates = rateRecords.filter(r => {
+          console.log(`Filtering active rate matrix bounds for booking: "${booking.check_in}"...`);
+          const activeRates = rateRecords.filter((r, rIdx) => {
             if (r.is_family !== isFamily) return false;
             const startValid = r.start_date <= booking.check_in;
             const endValid = !r.end_date || r.end_date >= booking.check_in;
-            return startValid && endValid;
+            const matchResult = startValid && endValid;
+            
+            console.log(`Rate row [${rIdx}] (${r.guest_type}) match debug -> startValid: ${startValid} (${r.start_date} <= ${booking.check_in}), endValid: ${endValid} (${r.end_date} >= ${booking.check_in}). Evaluates: ${matchResult}`);
+            return matchResult;
           });
+          console.log(`Total matching configuration rules filtered down to memory: ${activeRates.length}`);
 
           const rateMap = activeRates.reduce((acc, r) => {
             acc[r.guest_type] = Number(r.rate_per_night);
             return acc;
           }, {});
+          console.log('Compiled runtime rateMap values:', JSON.stringify(rateMap));
 
           const adultRate = rateMap['adult'] ?? (isFamily ? 32 : 40);
           const grandChildRate = rateMap['grandchild_over21'] ?? (isFamily ? 25 : 40);
           const youngPersonRate = rateMap['young_person'] ?? 12;
           const CLEANING_FEE = rateMap['cleaning'] ?? 40;
+          console.log(`Fallback thresholds evaluated: adult=${adultRate}, grandchild=${grandChildRate}, young=${youngPersonRate}, cleaning=${CLEANING_FEE}`);
 
           const pricingHtml = `
             <ul style="margin-left:20px; color:#333;">
@@ -224,6 +280,7 @@ export default async function handler(req, res) {
           </div>
           `;
 
+          console.log(`Dispatching API call to Resend endpoint for guest email: ${booking.guest_email}`);
           return resend.emails.send({
             from: 'Cornerstones Booking <booking@cornerstonescrantock.com>',
             to: booking.guest_email,
@@ -232,14 +289,21 @@ export default async function handler(req, res) {
           });
         });
 
+        console.log('Resolving guest reminder promises via Promise.all...');
         await Promise.all(guestPromises);
+        console.log('All guest notification attempts executed.');
         results.guests = arrivingBookings.length;
       }
+    } else {
+      console.log('Skipping Task 2: Guest Reminders bypassed while running in Test Mode configuration.');
     }
 
     // ============================================================
     // ☀️ TASK 3: SEIZE THE RAY (Wednesdays Only)
     // ============================================================
+    console.log('--- STARTING TASK 3: SEIZE THE RAY ---');
+    console.log(`Current Day Index evaluated: ${today.getDay()} (Wednesday is 3)`);
+    
     if (today.getDay() === 3 || isTestMode) {
       const targetSat = new Date(today);
       targetSat.setDate(today.getDate() + 3);
@@ -249,15 +313,20 @@ export default async function handler(req, res) {
 
       const checkInStr = targetSat.toISOString().split('T')[0];
       const checkOutStr = new Date(targetSat.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; 
+      console.log(`Seize the Ray Window string criteria -> check_in search lower bound: "${checkInStr}", check_out upper bound: "${checkOutStr}"`);
       
       const dateOptionsLong = { weekday: 'long', day: 'numeric', month: 'long' };
       const headerDateRange = `${targetSat.toLocaleDateString('en-GB', dateOptionsLong)} – ${targetFri.toLocaleDateString('en-GB', dateOptionsLong)}`;
 
-      const { data: bookings } = await supabase
+      console.log('Querying conflicting approved bookings from database matrix range...');
+      const { data: bookings, error: rayBookingsError } = await supabase
         .from('bookings')
         .select('check_in, check_out')
         .eq('status', 'approved')
         .or(`check_in.lt.${checkOutStr},check_out.gt.${checkInStr}`); 
+
+      if (rayBookingsError) console.error('Supabase error fetching range matches for weather window:', rayBookingsError);
+      console.log('Overlapping range bookings returned count:', bookings ? bookings.length : 0);
 
       const isDateBooked = (dateObj) => {
         const dateStr = dateObj.toISOString().split('T')[0];
@@ -265,10 +334,12 @@ export default async function handler(req, res) {
         return bookings.some(b => b.check_in <= dateStr && b.check_out > dateStr);
       };
 
+      console.log('Fetching Open-Meteo API weather coordinate maps...');
       const weatherRes = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=50.40&longitude=-5.11&daily=weathercode,temperature_2m_max&timezone=Europe%2FLondon&forecast_days=16`
       );
       const weatherData = await weatherRes.json();
+      console.log('Open-Meteo response structure verified:', !!weatherData, 'Daily attributes defined:', !!weatherData?.daily);
 
       const forecast = [];
       let availableSunnyDays = 0;
@@ -305,19 +376,24 @@ export default async function handler(req, res) {
           });
         }
       }
+      console.log(`Calculated summary for weather loop -> Available Sunny Days: ${availableSunnyDays}`);
 
+      console.log(`Checking alert execution flags -> availableSunnyDays >= 3: ${availableSunnyDays >= 3} || isTestMode: ${isTestMode}`);
       if (availableSunnyDays >= 3 || isTestMode) {
         let subscribers = [];
 
         if (isTestMode) {
           subscribers = [{ email: TEST_EMAIL, name: 'Shane (Test)', id: 'TEST_USER' }];
         } else {
-          const { data } = await supabase
+          console.log('Querying public active email subscriber entities...');
+          const { data, error: subError } = await supabase
             .from('subscribers')
             .select('email, name, id')
             .eq('status', 'active');
+          if (subError) console.error('Supabase error fetching subscriber mailing arrays:', subError);
           subscribers = data || [];
         }
+        console.log('Total targeted subscribers map allocation:', subscribers.length);
 
         if (subscribers && subscribers.length > 0) {
           const weatherGridHtml = forecast.map(day => {
@@ -355,6 +431,7 @@ export default async function handler(req, res) {
           }).join('');
 
           const emailPromises = subscribers.map(sub => {
+            console.log(`Queueing weather alert email distribution bound to: ${sub.email}`);
             return resend.emails.send({
               from: 'Seize the Ray <booking@cornerstonescrantock.com>',
               to: sub.email,
@@ -400,20 +477,26 @@ export default async function handler(req, res) {
                 </div>
               </body>
               </html>`
-            ]);
+            });
           });
 
+          console.log('Resolving weather email promises via Promise.all...');
           await Promise.all(emailPromises);
+          console.log('All weather alert subscriber emails processed.');
           results.ray_alerts = subscribers.length;
         }
       }
     } else {
+      console.log('Skipping Task 3: It is not Wednesday and Test Mode is inactive.');
       results.ray_skipped = true;
     }
 
+    console.log('Execution completed smoothly. Final response tracking values:', JSON.stringify(results));
     return res.status(200).json({ success: true, ...results });
   } catch (err) {
-    console.error('Cron error:', err);
+    console.error('🛑 HARD ERROR INTERCEPTED IN CATCH BLOCK:', err);
+    console.error('Error message string properties:', err.message);
+    console.error('Detailed Error Execution Context Stacktrace:', err.stack);
     return res.status(500).json({ error: err.message });
   }
 }
